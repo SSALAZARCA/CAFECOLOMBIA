@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Admin Login</title>
+</head>
+<body>
+    <h1>Debug Admin Login</h1>
+    <button onclick="testLogin()">Test Login</button>
+    <div id="result"></div>
+
+    <script>
+        async function testLogin() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing login...';
+            
+            try {
+                console.log('Starting login test...');
+                
+                // Test login
+                const loginResponse = await fetch('/api/admin/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@cafecolombiaapp.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                console.log('Login response status:', loginResponse.status);
+                const loginData = await loginResponse.json();
+                console.log('Login response data:', loginData);
+                
+                if (loginData.success && loginData.token) {
+                    // Decode JWT to see permissions
+                    const tokenParts = loginData.token.split('.');
+                    const payload = JSON.parse(atob(tokenParts[1]));
+                    console.log('JWT Payload:', payload);
+                    
+                    // Test /me endpoint
+                    const meResponse = await fetch('/api/admin/auth/me', {
+                        headers: {
+                            'Authorization': 'Bearer ' + loginData.token
+                        }
+                    });
+                    
+                    console.log('Me response status:', meResponse.status);
+                    const meData = await meResponse.json();
+                    console.log('Me response data:', meData);
+                    
+                    resultDiv.innerHTML = 
+                        '<h3>Login Success!</h3>' +
+                        '<p><strong>JWT Permissions:</strong> ' + JSON.stringify(payload.permissions) + '</p>' +
+                        '<p><strong>Is Super Admin (JWT):</strong> ' + payload.is_super_admin + '</p>' +
+                        '<p><strong>Is Super Admin (ME):</strong> ' + (meData.data ? meData.data.is_super_admin : 'N/A') + '</p>' +
+                        '<p><strong>Role (ME):</strong> ' + (meData.data ? meData.data.role : 'N/A') + '</p>';
+                } else {
+                    resultDiv.innerHTML = '<p style="color: red;">Login failed: ' + (loginData.message || 'Unknown error') + '</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

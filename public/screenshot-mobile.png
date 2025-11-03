@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="390" height="844" viewBox="0 0 390 844" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="390" height="844" fill="#F5F5F5"/>
+  
+  <!-- Header -->
+  <rect width="390" height="80" fill="#2E7D32"/>
+  <text x="20" y="50" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="18" font-weight="bold">CaféColombia</text>
+  
+  <!-- Dashboard Cards -->
+  <rect x="20" y="100" width="350" height="100" rx="8" fill="#FFFFFF" stroke="#E0E0E0"/>
+  <text x="40" y="125" fill="#2E7D32" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Lotes Activos</text>
+  <text x="40" y="170" fill="#333" font-family="Arial, sans-serif" font-size="24" font-weight="bold">24 lotes</text>
+  
+  <rect x="20" y="220" width="350" height="100" rx="8" fill="#FFFFFF" stroke="#E0E0E0"/>
+  <text x="40" y="245" fill="#2E7D32" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Producción Mensual</text>
+  <text x="40" y="290" fill="#333" font-family="Arial, sans-serif" font-size="24" font-weight="bold">1,250 kg</text>
+  
+  <rect x="20" y="340" width="350" height="100" rx="8" fill="#FFFFFF" stroke="#E0E0E0"/>
+  <text x="40" y="365" fill="#2E7D32" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Tareas Pendientes</text>
+  <text x="40" y="410" fill="#FF5722" font-family="Arial, sans-serif" font-size="24" font-weight="bold">3 urgentes</text>
+  
+  <!-- Quick Actions -->
+  <rect x="20" y="460" width="350" height="200" rx="8" fill="#FFFFFF" stroke="#E0E0E0"/>
+  <text x="40" y="485" fill="#2E7D32" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Acciones Rápidas</text>
+  
+  <rect x="40" y="500" width="150" height="60" rx="4" fill="#4CAF50"/>
+  <text x="115" y="535" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="12">Nuevo Registro</text>
+  
+  <rect x="200" y="500" width="150" height="60" rx="4" fill="#2196F3"/>
+  <text x="275" y="535" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="12">Ver Mapa</text>
+  
+  <rect x="40" y="580" width="150" height="60" rx="4" fill="#FF9800"/>
+  <text x="115" y="615" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="12">Inventario</text>
+  
+  <rect x="200" y="580" width="150" height="60" rx="4" fill="#9C27B0"/>
+  <text x="275" y="615" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="12">Reportes</text>
+  
+  <!-- Bottom Navigation -->
+  <rect y="764" width="390" height="80" fill="#FFFFFF" stroke="#E0E0E0"/>
+  <text x="78" y="810" text-anchor="middle" fill="#2E7D32" font-family="Arial, sans-serif" font-size="12">Inicio</text>
+  <text x="195" y="810" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="12">Lotes</text>
+  <text x="312" y="810" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="12">Perfil</text>
+</svg>

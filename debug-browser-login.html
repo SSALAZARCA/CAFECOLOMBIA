@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Admin Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        .success { border-color: #28a745; background: #d4edda; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Debug Admin Login</h1>
+        <p>Esta página te ayuda a hacer login como administrador y verificar el estado de autenticación.</p>
+        
+        <button onclick="testLogin()">🔐 Hacer Login</button>
+        <button onclick="checkAuthStatus()">📊 Verificar Estado</button>
+        <button onclick="goToDashboard()">🏠 Ir al Dashboard</button>
+        <button onclick="clearStorage()">🗑️ Limpiar Storage</button>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        async function testLogin() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>🔄 Haciendo login...</p>';
+            
+            try {
+                console.log('🔐 Iniciando login de administrador...');
+                
+                const response = await fetch('http://localhost:3001/api/admin/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: 'admin@cafecolombiaapp.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                console.log('📥 Respuesta recibida:', response.status);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('❌ Error en login:', errorData);
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${errorData.message}</p>`;
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('✅ Login exitoso:', data);
+                
+                if (data.success && data.token) {
+                    // Guardar en localStorage con el formato correcto del store
+                    const storeData = {
+                        state: {
+                            isAuthenticated: true,
+                            currentAdmin: {
+                                id: data.admin.id,
+                                email: data.admin.email,
+                                name: data.admin.name,
+                                role: data.admin.is_super_admin ? 'super_admin' : 'admin',
+                                is_super_admin: data.admin.is_super_admin,
+                                is_active: data.admin.is_active,
+                                permissions: data.admin.is_super_admin ? ['*'] : (data.admin.permissions || [])
+                            },
+                            session: {
+                                token: data.token,
+                                refresh_token: data.token,
+                                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                            },
+                            sidebarOpen: true
+                        },
+                        version: 0
+                    };
+                    
+                    localStorage.setItem('admin-store', JSON.stringify(storeData));
+                    console.log('💾 Store guardado en localStorage:', storeData);
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ Login Exitoso</h3>
+                            <p><strong>Email:</strong> ${data.admin.email}</p>
+                            <p><strong>Rol:</strong> ${data.admin.role}</p>
+                            <p><strong>Super Admin:</strong> ${data.admin.is_super_admin ? 'Sí' : 'No'}</p>
+                            <p><strong>Token:</strong> ${data.token.substring(0, 50)}...</p>
+                            <p><strong>Permisos:</strong> ${JSON.stringify(data.admin.permissions)}</p>
+                            <button onclick="goToDashboard()" style="margin-top: 10px;">🏠 Ir al Dashboard</button>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Login falló: ${data.message}</p>`;
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function checkAuthStatus() {
+            const resultDiv = document.getElementById('result');
+            
+            const storeData = localStorage.getItem('admin-store');
+            
+            if (!storeData) {
+                resultDiv.innerHTML = '<p class="error">❌ No hay datos de autenticación en el store</p>';
+                return;
+            }
+            
+            try {
+                const store = JSON.parse(storeData);
+                const admin = store.state.currentAdmin;
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>📊 Estado de Autenticación</h3>
+                        <p><strong>Autenticado:</strong> ${store.state.isAuthenticated ? 'Sí' : 'No'}</p>
+                        <p><strong>Email:</strong> ${admin.email}</p>
+                        <p><strong>Rol:</strong> ${admin.role}</p>
+                        <p><strong>Super Admin:</strong> ${admin.is_super_admin ? 'Sí' : 'No'}</p>
+                        <p><strong>Permisos:</strong> ${JSON.stringify(admin.permissions)}</p>
+                        <p><strong>Token presente:</strong> ${store.state.session.token ? 'Sí' : 'No'}</p>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error parseando datos: ${error.message}</p>`;
+            }
+        }
+        
+        function goToDashboard() {
+            window.open('http://localhost:5173/admin/dashboard', '_blank');
+        }
+        
+        function clearStorage() {
+            localStorage.removeItem('admin-store');
+            document.getElementById('result').innerHTML = '<p>🗑️ Storage limpiado</p>';
+        }
+        
+        // Auto-login al cargar la página
+        window.addEventListener('load', () => {
+            console.log('🚀 Página cargada, ejecutando auto-login...');
+            testLogin();
+        });
+    </script>
+</body>
+</html>

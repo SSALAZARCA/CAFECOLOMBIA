@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="64" fill="#2E7D32"/>
+  <circle cx="256" cy="256" r="160" fill="#4CAF50"/>
+  <path d="M256 150C228 150 205 173 205 201C205 229 228 252 256 252C284 252 307 229 307 201C307 173 284 150 256 150Z" fill="#FFFFFF"/>
+  <ellipse cx="256" cy="201" rx="32" ry="21" fill="#2E7D32"/>
+  <path d="M256 252L256 362M230 336L256 362L282 336" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="256" y="420" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="36" font-weight="bold">CAFÉ</text>
+  <text x="256" y="450" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24">COLOMBIA</text>
+</svg>

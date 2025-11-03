@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#F5F5F5"/>
+  <!-- Header -->
+  <rect width="1280" height="80" fill="#2E7D32"/>
+  <text x="40" y="50" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="24" font-weight="bold">CaféColombia - Gestión de Fincas</text>
+  
+  <!-- Dashboard Cards -->
+  <rect x="40" y="120" width="280" height="160" rx="8" fill="#FFFFFF" stroke="#E0E0E0"/>
+  <text x="60" y="150" fill="#2E7D32" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Lotes Activos</text>
+  <text x="60" y="220" fill="#333" font-family="Arial, sans-serif" font-size="32" font-weight="bold">24</text>
+  
+  <rect x="360" y="120" width="280" height="160" rx="8" fill="#FFFFFF" stroke="#E0E0E0"/>
+  <text x="380" y="150" fill="#2E7D32" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Producción Mensual</text>
+  <text x="380" y="220" fill="#333" font-family="Arial, sans-serif" font-size="32" font-weight="bold">1,250 kg</text>
+  
+  <rect x="680" y="120" width="280" height="160" rx="8" fill="#FFFFFF" stroke="#E0E0E0"/>
+  <text x="700" y="150" fill="#2E7D32" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Insumos Disponibles</text>
+  <text x="700" y="220" fill="#333" font-family="Arial, sans-serif" font-size="32" font-weight="bold">18</text>
+  
+  <rect x="1000" y="120" width="240" height="160" rx="8" fill="#FFFFFF" stroke="#E0E0E0"/>
+  <text x="1020" y="150" fill="#2E7D32" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Rentabilidad</text>
+  <text x="1020" y="220" fill="#4CAF50" font-family="Arial, sans-serif" font-size="32" font-weight="bold">+15.2%</text>
+  
+  <!-- Map Area -->
+  <rect x="40" y="320" width="600" height="360" rx="8" fill="#E8F5E8" stroke="#2E7D32"/>
+  <text x="320" y="500" text-anchor="middle" fill="#2E7D32" font-family="Arial, sans-serif" font-size="18">Mapa de Finca</text>
+  
+  <!-- Tasks List -->
+  <rect x="680" y="320" width="560" height="360" rx="8" fill="#FFFFFF" stroke="#E0E0E0"/>
+  <text x="700" y="350" fill="#2E7D32" font-family="Arial, sans-serif" font-size="18" font-weight="bold">Tareas Pendientes</text>
+  <rect x="700" y="370" width="520" height="40" fill="#F5F5F5"/>
+  <text x="720" y="395" fill="#333" font-family="Arial, sans-serif" font-size="14">Fertilización Lote A - Vence hoy</text>
+</svg>
