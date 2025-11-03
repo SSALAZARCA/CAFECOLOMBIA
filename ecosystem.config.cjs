@@ -63,7 +63,7 @@ module.exports = {
       repo: 'git@github.com:SSALAZARCA/CAFECOLOMBIAAPP.git',
       path: '/var/www/cafecolombiaapp',
       'pre-deploy-local': '',
-      'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.js --env production',
+      'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.cjs --env production',
       'pre-setup': ''
     }
   }

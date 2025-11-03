@@ -87,7 +87,7 @@ COPY --from=deps-prod --chown=cafeapp:nodejs /app/api/node_modules ./api/node_mo
 # Copiar archivos de configuración
 COPY --chown=cafeapp:nodejs package.json ./
 COPY --chown=cafeapp:nodejs api/package.json ./api/
-COPY --chown=cafeapp:nodejs ecosystem.config.js ./
+COPY --chown=cafeapp:nodejs ecosystem.config.cjs ./
 COPY --chown=cafeapp:nodejs scripts/ ./scripts/
 
 # Instalar PM2 globalmente
@@ -104,4 +104,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3001/api/health || exit 1
 
 # Comando por defecto
-CMD ["pm2-runtime", "start", "ecosystem.config.js", "--env", "production"]
+CMD ["pm2-runtime", "start", "ecosystem.config.cjs", "--env", "production"]
