@@ -856,10 +856,10 @@ async function startServer() {
       console.log('⚠️  Advertencia: No se pudo conectar a MySQL');
     }
 
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🎉 Servidor corriendo en puerto ${PORT}`);
-      console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
-      console.log(`📍 API base: http://localhost:${PORT}/api`);
+      console.log(`📍 Health check: http://0.0.0.0:${PORT}/api/health`);
+      console.log(`📍 API base: http://0.0.0.0:${PORT}/api`);
       console.log('');
       console.log('📋 Configuración de base de datos:');
       console.log(`   Host: ${dbConfig.host}`);

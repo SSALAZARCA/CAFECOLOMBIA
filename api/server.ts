@@ -145,10 +145,10 @@ async function startServer() {
     console.log('✅ Conexión a MySQL establecida correctamente');
 
     // Iniciar el servidor
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
-      console.log(`📍 API disponible en: http://localhost:${PORT}/api`);
-      console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`📍 API disponible en: http://0.0.0.0:${PORT}/api`);
+      console.log(`🏥 Health check: http://0.0.0.0:${PORT}/api/health`);
       console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
       console.log(`📊 Base de datos: ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 3306}`);
     });
