@@ -24,6 +24,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY api/package*.json ./api/
 
+# Copiar scripts necesarios para el build (requerido por postinstall)
+COPY scripts/ ./scripts/
+
 # ================================
 # STAGE 1: Dependencias
 # ================================
