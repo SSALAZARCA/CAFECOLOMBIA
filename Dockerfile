@@ -41,9 +41,9 @@ RUN cd api && npm ci --only=production && npm cache clean --force
 # ================================
 FROM base AS deps-prod
 
-# Instalar solo dependencias de producción para la imagen final
-RUN npm ci --only=production && npm cache clean --force
-RUN cd api && npm ci --only=production && npm cache clean --force
+# Instalar solo dependencias de producción para la imagen final (sin ejecutar scripts)
+RUN npm ci --only=production --ignore-scripts && npm cache clean --force
+RUN cd api && npm ci --only=production --ignore-scripts && npm cache clean --force
 
 # ================================
 # STAGE 2: Builder
