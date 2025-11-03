@@ -82,10 +82,24 @@ fi
 log_success "✅ Configuración verificada"
 
 echo ""
-echo "🐳 PASO 3: CONSTRUCCIÓN Y DESPLIEGUE"
-echo "===================================="
+echo "🏗️ PASO 3: BUILD DEL FRONTEND"
+echo "============================="
 
-log_info "Construyendo imágenes..."
+log_info "Construyendo frontend (Vite build)..."
+npm run build
+
+if [ $? -ne 0 ]; then
+    log_error "❌ Error en el build del frontend"
+    exit 1
+fi
+
+log_success "✅ Frontend construido exitosamente"
+
+echo ""
+echo "🐳 PASO 4: CONSTRUCCIÓN Y DESPLIEGUE DOCKER"
+echo "==========================================="
+
+log_info "Construyendo imágenes Docker..."
 docker-compose -f docker-compose.traefik.yml build --no-cache
 
 if [ $? -ne 0 ]; then
@@ -104,7 +118,7 @@ fi
 log_success "✅ Servicios iniciados"
 
 echo ""
-echo "⏳ PASO 4: VERIFICACIÓN DE SERVICIOS"
+echo "⏳ PASO 5: VERIFICACIÓN DE SERVICIOS"
 echo "===================================="
 
 log_info "Esperando que los servicios estén listos..."
