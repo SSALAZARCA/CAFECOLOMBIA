@@ -60,8 +60,8 @@ if (Test-Path ".env") {
 Write-Host "`n5. PRUEBA DE CONECTIVIDAD DESDE NAVEGADOR" -ForegroundColor Yellow
 Write-Host "----------------------------------------" -ForegroundColor Gray
 $frontendUrls = @(
-    "http://localhost/api/health",
-    "http://localhost/api/debug/connection"
+    "http://localhost:3001/api/health",
+    "http://localhost:3001/api/debug/connection"
 )
 
 foreach ($url in $frontendUrls) {
