@@ -24,6 +24,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY api/package*.json ./api/
 
+# Copiar archivos de configuración TypeScript
+COPY tsconfig*.json ./
+
 # Copiar scripts necesarios para el build (requerido por postinstall)
 COPY scripts/ ./scripts/
 
@@ -35,7 +38,7 @@ FROM base AS deps
     # Instalar TODAS las dependencias (incluyendo devDependencies para el build)
     # Usar --ignore-scripts para evitar que postinstall ejecute npm run build sin archivos fuente
     RUN npm ci --ignore-scripts && npm cache clean --force
-    RUN cd api && npm install --only=production && npm cache clean --force
+    RUN cd api && npm ci && npm cache clean --force
 
 # ================================
 # STAGE 1.5: Dependencias de producción solamente
@@ -44,7 +47,7 @@ FROM base AS deps-prod
 
 # Instalar solo dependencias de producción para la imagen final (sin ejecutar scripts)
 RUN npm ci --only=production --ignore-scripts && npm cache clean --force
-RUN cd api && npm install --only=production --ignore-scripts && npm cache clean --force
+RUN cd api && npm ci --only=production --ignore-scripts && npm cache clean --force
 
 # ================================
 # STAGE 2: Builder
