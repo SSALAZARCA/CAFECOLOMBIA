@@ -205,70 +205,89 @@ export const useAdminStore = create<AdminStore>()(
         try {
           console.log('🔐 DEBUG AdminStore - Iniciando login con:', { email, password: '***' });
           
-          // Ajustar endpoints para evitar doble "/api"
-          const data = await adminHttpClient.post('/auth/admin/login', {
-            username: email, // El servidor espera 'username' pero acepta email
+          // Usar endpoint correcto del backend según server: /api/admin/auth/login
+          // El backend espera 'username' en el body
+          const data = await adminHttpClient.post('/api/admin/auth/login', {
+            username: email,
             password,
-            two_factor_code: twoFactorCode
+            twoFactorCode
           }, { skipAuth: true });
-          
-          console.log('✅ DEBUG AdminStore - Login exitoso, respuesta:', data);
-          
-          // Decodificar JWT para obtener permisos
-          const jwtPayload = JSON.parse(atob(data.token.split('.')[1]));
-          console.log('🔑 DEBUG AdminStore - JWT payload:', jwtPayload);
-          
-          // Obtener información del admin autenticado
-          const adminInfo = await adminHttpClient.get('/admin/me', {
-            headers: {
-              'Authorization': `Bearer ${data.token}`
-            }
-          });
-          
-          console.log('👤 DEBUG AdminStore - Admin info recibida:', adminInfo);
-          
-          // Adaptar respuesta del backend actual
+
+          console.log('✅ DEBUG AdminStore - Respuesta login:', data);
+
+          // Manejar caso de 2FA requerido (el backend devuelve 200 con requiresTwoFactor)
+          if (data && (data.requiresTwoFactor || data.message?.includes('dos factores'))) {
+            throw new Error('two-factor required');
+          }
+
+          // Validar token
+          if (!data || !data.token) {
+            throw new Error(data?.message || 'Respuesta de autenticación inválida');
+          }
+
+          // Decodificar JWT para obtener permisos si vienen en el token
+          let permissions: string[] = [];
+          try {
+            const jwtPayload = JSON.parse(atob(String(data.token).split('.')[1]));
+            permissions = jwtPayload?.permissions || [];
+            console.log('🔑 DEBUG AdminStore - JWT payload:', jwtPayload);
+          } catch (e) {
+            console.warn('No se pudo decodificar JWT:', e);
+          }
+
+          // Construir usuario actual a partir de la respuesta del backend
+          const user = data.user || {};
           const adminUser = {
-            id: adminInfo.admin.id,
-            email: adminInfo.admin.email,
-            name: adminInfo.admin.name,
-            role: adminInfo.admin.is_super_admin ? 'super_admin' : 'admin',
-            is_super_admin: adminInfo.admin.is_super_admin,
-            is_active: adminInfo.admin.is_active,
-            permissions: jwtPayload.permissions || []
+            id: user.id,
+            email: user.email,
+            name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
+            role: user.role,
+            is_super_admin: (user.role || '') === 'super_admin',
+            is_active: true,
+            permissions: user.permissions || permissions
           };
-          
-          console.log('🎯 DEBUG AdminStore - Usuario final creado:', adminUser);
-          
+
+          const validAdminRoles = ['super_admin', 'admin', 'moderator'];
+          if (!validAdminRoles.includes(adminUser.role as string)) {
+            set({ loading: false });
+            throw new Error('invalid admin role');
+          }
+
           const session = {
             token: data.token,
-            refresh_token: data.token, // Usar el mismo token por ahora
+            refresh_token: data.token,
             expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
           };
-          
+
           // Configurar token en el cliente HTTP
           adminHttpClient.setAuthToken(session.token, session.refresh_token);
-          
+
           set({
             isAuthenticated: true,
             currentAdmin: adminUser,
             session: session,
             loading: false
           });
-          
-          // Cargar métricas iniciales
-          get().fetchDashboardMetrics();
-          
+
+          // Cargar métricas iniciales sin bloquear el login si fallan
+          try {
+            await get().fetchDashboardMetrics();
+          } catch (metricsError) {
+            console.warn('Advertencia: falló carga de métricas tras login:', metricsError);
+            // No bloquear el inicio de sesión por falla de métricas
+          }
+
           toast.success('Inicio de sesión exitoso');
           return true;
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'Error desconocido';
+          const message = (error as any)?.message || (error instanceof Error ? error.message : 'Error desconocido');
           set({ 
             error: message,
             loading: false 
           });
           toast.error(message);
-          return false;
+          // Propagar error para que la UI maneje 2FA u otros casos
+          throw error;
         }
       },
       
@@ -277,8 +296,7 @@ export const useAdminStore = create<AdminStore>()(
         
         if (session) {
           try {
-            // Endpoint correcto de logout
-            await adminHttpClient.post('/admin/auth/logout');
+            await adminHttpClient.post('/api/admin/auth/logout');
           } catch (error) {
             console.error('Error al cerrar sesión:', error);
           }
@@ -303,19 +321,25 @@ export const useAdminStore = create<AdminStore>()(
         if (!session) return false;
         
         try {
-          const data = await adminHttpClient.post('/admin/auth/refresh', {}, {
-            headers: { 'Authorization': `Bearer ${session.token}` }
-          });
-          
-          set({ session: data.session || {
-            token: data.token,
-            refresh_token: data.refresh_token || data.token,
-            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-          }});
-          
-          if (data.token) {
-            adminHttpClient.setAuthToken(data.token, data.refresh_token || data.token);
+          // Usar endpoint correcto y enviar refresh_token
+          const data = await adminHttpClient.post('/api/admin/auth/refresh', {
+            refresh_token: session.refresh_token || session.token
+          }, { skipAuth: true });
+
+          if (!data || !data.success || !data.data?.token) {
+            get().logout();
+            return false;
           }
+
+          const newSession = {
+            token: data.data.token,
+            refresh_token: data.data.token,
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          };
+
+          // Actualizar token en cliente HTTP
+          adminHttpClient.setAuthToken(newSession.token, newSession.refresh_token);
+          set({ session: newSession });
           return true;
         } catch (error) {
           get().logout();

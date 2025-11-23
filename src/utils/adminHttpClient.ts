@@ -31,9 +31,9 @@ interface RefreshTokenResponse {
 // CONFIGURACIÓN
 // =====================================================
 
-const API_BASE_URL = import.meta.env.DEV
-  ? (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '/api')
-  : (import.meta.env.VITE_API_URL || 'https://api.cafecolombiaapp.com');
+// Usar variable de entorno VITE si está definida; en producción usar el dominio actual
+const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL)
+  || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : 'http://localhost:3001');
 
 const DEFAULT_TIMEOUT = 30000; // 30 segundos
 
@@ -107,7 +107,7 @@ class TokenManager {
     if (!response.ok) {
       this.clearToken();
       // Redirigir al login
-      window.location.href = '/admin/login';
+      window.location.href = '/login';
       throw new Error('Failed to refresh token');
     }
 
@@ -119,11 +119,18 @@ class TokenManager {
 
   isTokenExpired(token: string): boolean {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      // Si el token no es JWT (no tiene 3 partes), asumir que no expira
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        return false;
+      }
+
+      const payload = JSON.parse(atob(parts[1]));
       const currentTime = Date.now() / 1000;
-      return payload.exp < currentTime;
+      return typeof payload.exp === 'number' ? payload.exp < currentTime : false;
     } catch {
-      return true;
+      // Si no se puede decodificar, tratarlo como no expirado para tokens no-JWT
+      return false;
     }
   }
 }
@@ -317,9 +324,9 @@ class AdminHttpClient {
       // Manejar casos especiales
       if (response.status === 401) {
         this.tokenManager.clearToken();
-        if (window.location.pathname !== '/admin/login') {
-          window.location.href = '/admin/login';
-        }
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+          }
       }
 
       throw apiError;

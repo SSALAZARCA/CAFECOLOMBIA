@@ -14,7 +14,6 @@ import SmartAlerts from '../components/SmartAlerts';
 import PhotoCapture from '../components/PhotoCapture';
 import { DiagnosticoPorFoto } from '../components/DiagnosticoPorFoto';
 import AlertasTempranasIA from '../components/AlertasTempranasIA';
-import RiskAssessmentDashboard from '../components/RiskAssessmentDashboard';
 
 interface PestStats {
   total: number;
@@ -655,7 +654,9 @@ const MIP: React.FC = () => {
         )}
 
         {selectedView === 'risk-dashboard' && (
-          <RiskAssessmentDashboard />
+          <div className="p-6">
+            {/* Dashboard de riesgos eliminado para caficultores */}
+          </div>
         )}
 
         {/* Modales */}

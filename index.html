@@ -4,7 +4,147 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Trae Project</title>
+    <title>Café Colombia</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/pwa-512x512.png" />
+    <script>
+      (function(){
+        try {
+          const KEY = 'swCleaned_v8';
+          const canRun = navigator.onLine && 'serviceWorker' in navigator;
+          if (!localStorage.getItem(KEY) && canRun) {
+            navigator.serviceWorker.getRegistrations()
+              .then(regs => Promise.all(regs.map(r => r.unregister())))
+              .then(() => {
+                if (window.caches && caches.keys) {
+                  return caches.keys()
+                    .then(names => Promise.all(names.map(n => caches.delete(n))));
+                }
+              })
+              .finally(() => {
+                try { localStorage.setItem(KEY, '1'); } catch {}
+                location.reload();
+              });
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script>
+      // Redirección temprana: si un usuario no-admin intenta rutas /admin/*, envíalo al dashboard
+      (function(){
+        try {
+          var path = location.pathname || '';
+          if (path.startsWith('/admin')) {
+            var raw = localStorage.getItem('user');
+            if (raw) {
+              var u = {};
+              try { u = JSON.parse(raw); } catch {}
+              var role = String(u && u.role || '').toLowerCase();
+              var isAdmin = role === 'admin' || role === 'super_admin' || role === 'moderator';
+              if (!isAdmin) {
+                location.replace('/dashboard');
+              }
+            } else {
+              // Sin sesión general → mostrar login estándar unificado
+              location.replace('/login');
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script>
+      // Guard global robusto para customElements.define, previene y neutraliza redefiniciones
+      (function(){
+        const ce = window.customElements;
+        if (!ce || !ce.define) return;
+        const origDefine = ce.define.bind(ce);
+
+        function safeDefine(name, ctor, options){
+          try {
+            if (ce.get(name)) return; // ya existe, no redefinir
+            return origDefine(name, ctor, options);
+          } catch (err) {
+            const msg = String((err && err.message) || err || '');
+            if (msg.includes('has already been defined')) {
+              // silenciar redefiniciones para evitar crash
+              return;
+            }
+            throw err;
+          }
+        }
+
+        // Parchear define y marcarlo
+        ce.define = safeDefine;
+        ce.__safePatched = true;
+
+        // Reaplicar el parche si algún polyfill reemplaza customElements.define
+        function patchDefineSafely(){
+          try {
+            if (!window.customElements) return;
+            const d = window.customElements.define;
+            if (d !== safeDefine) {
+              window.customElements.define = safeDefine;
+              window.customElements.__safePatched = true;
+            }
+          } catch {}
+        }
+        document.addEventListener('readystatechange', patchDefineSafely);
+        window.addEventListener('load', patchDefineSafely);
+        const mo = new MutationObserver(patchDefineSafely);
+        mo.observe(document.documentElement, { childList: true, subtree: true });
+
+        // Capturar el error global específico para que no rompa la app
+        window.addEventListener('error', function(e){
+          const msg = String((e.error && e.error.message) || e.message || '');
+          if (msg.includes('mce-autosize-textarea') || msg.includes('has already been defined')) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return false;
+          }
+        }, true);
+      })();
+    </script>
+    <script>
+      // Refuerzo: si otro script reemplaza customElements.define (p.ej. polyfill), lo parcheamos de nuevo
+      (function(){
+        function patchDefineSafely(){
+          try {
+            const ce = window.customElements;
+            if (!ce || ce.__safePatched) return;
+            const original = ce.define.bind(ce);
+            ce.define = function(name, ctor, options){
+              try {
+                if (ce.get(name)) return;
+                return original(name, ctor, options);
+              } catch (err) {
+                const msg = String((err && err.message) || err || '');
+                if (msg.includes('has already been defined')) {
+                  // Ignorar redefiniciones para evitar crash
+                  return;
+                }
+                throw err;
+              }
+            };
+            ce.__safePatched = true;
+          } catch {}
+        }
+        patchDefineSafely();
+        document.addEventListener('readystatechange', patchDefineSafely);
+        window.addEventListener('load', patchDefineSafely);
+        const mo = new MutationObserver(patchDefineSafely);
+        mo.observe(document.documentElement, { childList: true, subtree: true });
+
+        // Capturar el error global específico para que no rompa la app
+        window.addEventListener('error', function(e){
+          const msg = String((e.error && e.error.message) || e.message || '');
+          if (msg.includes('mce-autosize-textarea') || msg.includes('has already been defined')) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return false;
+          }
+        }, true);
+      })();
+    </script>
     <script type="module">
       if (import.meta.hot?.on) {
         import.meta.hot.on('vite:error', (error) => {

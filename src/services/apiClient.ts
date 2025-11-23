@@ -121,7 +121,7 @@ export const API_ENDPOINTS = {
   
   // System
   system: {
-    health: '/api/health',
+    health: '/api/ping',
     version: '/api/version',
     config: '/api/config'
   }
@@ -173,7 +173,9 @@ export class ApiClient {
       signal
     } = options;
 
-    const url = `${this.baseUrl}${endpoint}`;
+    // Use relative URLs in development to leverage Vite proxy
+    const isDev = import.meta.env.MODE === 'development' || import.meta.env.DEV;
+    const url = isDev ? endpoint : `${this.baseUrl}${endpoint}`;
     const requestHeaders = { ...this.defaultHeaders, ...headers };
 
     // Create abort controller for timeout

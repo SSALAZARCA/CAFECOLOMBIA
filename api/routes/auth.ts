@@ -30,6 +30,8 @@ interface CoffeeGrowerRegisterData {
   password: string;
   firstName: string;
   lastName: string;
+  documentType?: string;
+  identificationNumber?: string;
   phone: string;
   farmName: string;
   farmLocation: {
@@ -49,19 +51,44 @@ interface CoffeeGrowerRegisterData {
 
 // Registro de caficultor
 router.post('/register', asyncHandler(async (req, res) => {
-  const {
+  // Aceptar múltiples convenciones de nombres desde el frontend
+  const email: string = req.body.email;
+  const password: string = req.body.password;
+  const firstName: string = req.body.firstName;
+  const lastName: string = req.body.lastName;
+  const phone: string = req.body.phone;
+  const farmName: string = req.body.farmName;
+  const experience: number = req.body.experience;
+  const coffeeVarieties: string[] = req.body.coffeeVarieties;
+  const certifications: string[] = req.body.certifications || [];
+
+  // Documento e identificación: aceptar snake_case y camelCase
+  const documentType: string | undefined = req.body.document_type || req.body.documentType;
+  const identificationNumber: string | undefined = req.body.identification_number || req.body.identificationNumber;
+
+  // Ubicación: aceptar objeto o campos aplanados
+  const farmLocation = req.body.farmLocation || {
+    department: req.body.department,
+    municipality: req.body.municipality,
+    address: req.body.address
+  };
+  const farmSize: number = req.body.farmSize;
+
+  // Log de depuración del payload recibido (sin contraseña completa)
+  console.log('🔎 Registro payload recibido:', {
     email,
-    password,
     firstName,
     lastName,
+    documentType,
+    identificationNumber,
     phone,
     farmName,
     farmLocation,
     farmSize,
     coffeeVarieties,
-    certifications = [],
+    certifications,
     experience
-  }: CoffeeGrowerRegisterData = req.body;
+  });
 
   // Validaciones básicas
   if (!email || !password || !firstName || !lastName || !phone || !farmName || !farmLocation) {
@@ -84,6 +111,11 @@ router.post('/register', asyncHandler(async (req, res) => {
     throw createError('Debe especificar al menos una variedad de café', 400);
   }
 
+  // Validación de documento/identificación
+  if (!documentType || !identificationNumber || String(identificationNumber).trim().length < 6) {
+    throw createError('Tipo de documento y número de identificación válidos son requeridos', 400);
+  }
+
   // Verificar si el email ya existe
   const [existingUsers] = await executeQuery(
     'SELECT id FROM coffee_growers WHERE email = ?',
@@ -98,75 +130,84 @@ router.post('/register', asyncHandler(async (req, res) => {
   const passwordHash = await bcrypt.hash(password, 12);
 
   // Usar transacción para crear caficultor y finca
-  await executeTransaction(async (connection) => {
-    // Crear caficultor
-    const [coffeeGrowerResult] = await connection.execute(
-      `INSERT INTO coffee_growers (
-        email, password_hash, first_name, last_name, phone, 
-        experience_years, is_active, email_verified, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, true, false, NOW())`,
-      [email, passwordHash, firstName, lastName, phone, experience]
-    ) as any;
+  try {
+    await executeTransaction(async (connection) => {
+      // Crear caficultor con documento e identificación
+      const [coffeeGrowerResult] = await connection.execute(
+        `INSERT INTO coffee_growers (
+          email, password_hash, first_name, last_name, phone,
+          document_type, identification_number,
+          experience_years, is_active, email_verified, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, false, NOW())`,
+        [email, passwordHash, firstName, lastName, phone, documentType, identificationNumber, experience]
+      ) as any;
 
-    const coffeeGrowerId = coffeeGrowerResult.insertId;
+      const coffeeGrowerId = coffeeGrowerResult.insertId;
 
-    // Crear finca principal
-    const [farmResult] = await connection.execute(
-      `INSERT INTO farms (
-        coffee_grower_id, name, location_department, location_municipality, 
-        location_address, total_area_hectares, is_active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, true, NOW())`,
-      [
-        coffeeGrowerId,
-        farmName,
-        farmLocation.department,
-        farmLocation.municipality,
-        farmLocation.address,
-        farmSize
-      ]
-    ) as any;
+      // Crear finca principal
+      const [farmResult] = await connection.execute(
+        `INSERT INTO farms (
+          coffee_grower_id, name, location_department, location_municipality,
+          location_address, total_area_hectares, is_active, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, true, NOW())`,
+        [
+          coffeeGrowerId,
+          farmName,
+          farmLocation.department,
+          farmLocation.municipality,
+          farmLocation.address,
+          farmSize
+        ]
+      ) as any;
 
-    const farmId = farmResult.insertId;
+      const farmId = farmResult.insertId;
 
-    // Agregar coordenadas si están disponibles
-    if (farmLocation.coordinates) {
+      // Agregar coordenadas si están disponibles
+      if (farmLocation.coordinates) {
+        await connection.execute(
+          'UPDATE farms SET latitude = ?, longitude = ? WHERE id = ?',
+          [farmLocation.coordinates.latitude, farmLocation.coordinates.longitude, farmId]
+        );
+      }
+
+      // Agregar variedades de café
+      for (const variety of coffeeVarieties) {
+        await connection.execute(
+          `INSERT INTO farm_coffee_varieties (farm_id, variety_name, created_at) 
+           VALUES (?, ?, NOW())`,
+          [farmId, variety]
+        );
+      }
+
+      // Agregar certificaciones si existen
+      for (const certification of certifications) {
+        await connection.execute(
+          `INSERT INTO farm_certifications (farm_id, certification_name, status, created_at) 
+           VALUES (?, ?, 'active', NOW())`,
+          [farmId, certification]
+        );
+      }
+
+      // Log de auditoría
       await connection.execute(
-        'UPDATE farms SET latitude = ?, longitude = ? WHERE id = ?',
-        [farmLocation.coordinates.latitude, farmLocation.coordinates.longitude, farmId]
+        `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address)
+         VALUES (?, 'register', 'coffee_grower', ?, ?, ?)`,
+        [
+          coffeeGrowerId,
+          'coffee_grower_registration',
+          coffeeGrowerId,
+          JSON.stringify({ email, farmName, farmSize }),
+          req.ip
+        ]
       );
+    });
+  } catch (err: any) {
+    // Manejo específico de duplicados (identificación o email)
+    if (err && (err.code === 'ER_DUP_ENTRY' || String(err.message).includes('Duplicate entry'))) {
+      throw createError('El email o número de identificación ya está registrado', 409);
     }
-
-    // Agregar variedades de café
-    for (const variety of coffeeVarieties) {
-      await connection.execute(
-        `INSERT INTO farm_coffee_varieties (farm_id, variety_name, created_at) 
-         VALUES (?, ?, NOW())`,
-        [farmId, variety]
-      );
-    }
-
-    // Agregar certificaciones si existen
-    for (const certification of certifications) {
-      await connection.execute(
-        `INSERT INTO farm_certifications (farm_id, certification_name, status, created_at) 
-         VALUES (?, ?, 'active', NOW())`,
-        [farmId, certification]
-      );
-    }
-
-    // Log de auditoría
-    await connection.execute(
-      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address)
-       VALUES (?, 'register', 'coffee_grower', ?, ?, ?)`,
-      [
-        coffeeGrowerId,
-        'coffee_grower_registration',
-        coffeeGrowerId,
-        JSON.stringify({ email, farmName, farmSize }),
-        req.ip
-      ]
-    );
-  });
+    throw err;
+  }
 
   res.status(201).json({
     message: 'Registro exitoso. Por favor verifica tu email para activar tu cuenta.',
@@ -181,7 +222,9 @@ router.post('/register', asyncHandler(async (req, res) => {
 
 // Login de caficultor
 router.post('/login', asyncHandler(async (req, res) => {
-  const { email, password }: LoginData = req.body;
+  // Aceptar username como alias de email
+  const email: string = req.body.email || req.body.username;
+  const password: string = req.body.password;
 
   if (!email || !password) {
     throw createError('Email y contraseña son requeridos', 400);
@@ -692,5 +735,74 @@ async function getUserPermissions(role: string): Promise<string[]> {
 
   return rolePermissions[role] || [];
 }
+
+// Detectar tipo de usuario por email
+router.post('/detect-user-type', asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw createError('Email es requerido', 400);
+  }
+
+  // Validar formato de email
+  const emailSchema = z.string().email();
+  try {
+    emailSchema.parse(email);
+  } catch (error) {
+    throw createError('Formato de email inválido', 400);
+  }
+
+  // Primero buscar en admin_users
+  const [adminUsers] = await executeQuery(
+    `SELECT id, email, role, is_active, 'admin' as user_type
+     FROM admin_users 
+     WHERE email = ? AND is_active = true`,
+    [email]
+  ) as any[];
+
+  if (adminUsers && adminUsers.length > 0) {
+    const user = adminUsers[0];
+    return res.json({
+      userType: user.user_type,
+      role: user.role,
+      email: user.email,
+      exists: true,
+      isActive: true
+    });
+  }
+
+  // Luego buscar en coffee_growers
+  const [coffeeGrowers] = await executeQuery(
+    `SELECT id, email, is_active, 'coffee_grower' as user_type,
+     CASE 
+       WHEN is_active = 1 THEN true 
+       ELSE false 
+     END as is_active_bool
+     FROM coffee_growers 
+     WHERE email = ?`,
+    [email]
+  ) as any[];
+
+  if (coffeeGrowers && coffeeGrowers.length > 0) {
+    const user = coffeeGrowers[0];
+    return res.json({
+      userType: user.user_type,
+      role: 'coffee_grower',
+      email: user.email,
+      exists: true,
+      isActive: user.is_active_bool
+    });
+  }
+
+  // Si no se encuentra en ninguna tabla
+  res.json({
+    userType: null,
+    role: null,
+    email: email,
+    exists: false,
+    isActive: false,
+    message: 'Usuario no encontrado'
+  });
+}));
 
 export default router;
