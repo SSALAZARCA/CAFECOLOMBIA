@@ -30,8 +30,10 @@ class BackendConnectionService {
   private healthCheckInterval_ms = 30000; // 30 segundos
   private isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
 
-  private baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
-  private healthEndpoint = '/api/health';
+  // Usar VITE_API_BASE_URL si está definido; en su defecto, rutas relativas para proxy de Vite
+  // En desarrollo usar rutas relativas para aprovechar el proxy de Vite
+  private baseUrl = ((import.meta.env.VITE_API_BASE_URL || '') && !this.isDevelopment) ? import.meta.env.VITE_API_BASE_URL : '';
+  private healthEndpoint = '/api/ping';
 
   constructor() {
     // En modo desarrollo, reducir la frecuencia de health checks
@@ -52,7 +54,11 @@ class BackendConnectionService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
 
-      const response = await fetch(`${this.baseUrl}${this.healthEndpoint}`, {
+      // Elegir endpoint según configuración: si hay baseUrl, usarla; si no, ruta relativa para proxy
+      const healthUrl = this.baseUrl
+        ? `${this.baseUrl}${this.healthEndpoint}`
+        : this.healthEndpoint;
+      const response = await fetch(healthUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +90,9 @@ class BackendConnectionService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error: any) {
-      const errorMessage = this.getErrorMessage(error);
+      // Manejo específico para AbortError y fallos de red en desarrollo
+      const isAbort = error?.name === 'AbortError';
+      const errorMessage = isAbort ? 'Solicitud de salud abortada por timeout' : this.getErrorMessage(error);
       
       this.connectionStatus = {
         isConnected: false,
@@ -104,7 +112,7 @@ class BackendConnectionService {
       }
 
       // Solo mostrar toast en producción o en el primer error en desarrollo
-      if (!this.isDevelopment && (this.connectionStatus.retryCount === 1 || this.connectionStatus.retryCount % 5 === 0)) {
+      if (!this.isDevelopment && !isAbort && (this.connectionStatus.retryCount === 1 || this.connectionStatus.retryCount % 5 === 0)) {
         toast.error('Error de conexión al servidor', {
           description: `${errorMessage}. Reintentando...`,
           duration: 5000

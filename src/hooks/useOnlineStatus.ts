@@ -46,19 +46,20 @@ export const useOnlineStatus = () => {
       return navigator.onLine ? 'good' : 'offline';
     }
 
-    // In production, try to ping the API
+    // In production, try to ping the API (use lightweight ping endpoint)
     try {
       const start = Date.now();
-      const response = await fetch('/api/ping', {
-        method: 'HEAD',
-        cache: 'no-cache'
-      });
+      const response = await fetch('/api/ping', { cache: 'no-store' });
       const duration = Date.now() - start;
 
-      if (response.ok) {
+      const fromFallback = response.headers.get('X-From-Fallback') === 'true';
+      if (response.ok && !fromFallback) {
         return duration < 1000 ? 'good' : 'poor';
       }
-      return 'poor';
+      if (fromFallback) {
+        return 'offline';
+      }
+      return response.ok ? 'poor' : 'offline';
     } catch (error) {
       return 'offline';
     }

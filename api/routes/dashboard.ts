@@ -55,8 +55,9 @@ router.get('/', authenticateToken, async (req, res) => {
       });
     }
 
-    // Solo permitir acceso a caficultores
-    if (userRole !== 'coffee_grower') {
+    // Solo permitir acceso a caficultores (aceptar múltiples variantes de roles)
+    const validCoffeeGrowerRoles = ['coffee_grower', 'coffee-grower', 'farmer', 'user', 'caficultor'];
+    if (!validCoffeeGrowerRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
         error: 'Acceso denegado. Solo para caficultores.'

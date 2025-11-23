@@ -149,13 +149,14 @@ export const requireAnyPermission = (permissions: string[]) => {
   };
 };
 
-// Middleware específico para caficultores
+// Middleware específico para caficultores (acepta múltiples variantes)
 export const requireCoffeeGrower = (req: AuthRequest, res: Response, next: NextFunction) => {
   if (!req.user) {
     return next(createError('Usuario no autenticado', 401));
   }
 
-  if (req.user.role !== 'coffee_grower') {
+  const validCoffeeGrowerRoles = ['coffee_grower', 'coffee-grower', 'farmer', 'user', 'caficultor'];
+  if (!validCoffeeGrowerRoles.includes(req.user.role)) {
     return next(createError('Acceso restringido a caficultores', 403));
   }
 

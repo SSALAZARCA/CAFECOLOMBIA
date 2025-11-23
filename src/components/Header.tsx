@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Coffee, Menu, Bell, User, Settings, Wifi, WifiOff, LogOut, ChevronDown } from 'lucide-react';
+import { Coffee, Menu, User, Settings, Wifi, WifiOff, LogOut, ChevronDown } from 'lucide-react';
 import { PWASettings } from './ui/PWASettings';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useAuth } from '../hooks/useAuth';
+import AINotificationIndicator from './AINotificationIndicator';
+import ErrorBoundary from './ErrorBoundary';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -10,62 +12,35 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const [showPWASettings, setShowPWASettings] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { isOnline, pendingSyncCount } = useOnlineStatus();
   const { user, logout } = useAuth();
-  const notificationsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const isProd = import.meta.env.PROD;
 
   // Close notifications dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
-        setShowNotifications(false);
-      }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
     };
 
-    if (showNotifications || showUserMenu) {
+    if (showUserMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showNotifications, showUserMenu]);
+  }, [showUserMenu]);
 
   const handleLogout = () => {
     logout();
     setShowUserMenu(false);
   };
 
-  // Mock notifications data
-  const notifications = [
-    {
-      id: 1,
-      title: 'Sincronización completada',
-      message: 'Todos los datos se han sincronizado correctamente',
-      time: '5 min',
-      type: 'success'
-    },
-    {
-      id: 2,
-      title: 'Alerta de plagas',
-      message: 'Se detectó actividad de broca en el Lote A',
-      time: '1 hora',
-      type: 'warning'
-    },
-    {
-      id: 3,
-      title: 'Recordatorio',
-      message: 'Programar aplicación de fertilizante',
-      time: '2 horas',
-      type: 'info'
-    }
-  ];
+  // Notificaciones gestionadas por AINotificationIndicator
 
   return (
     <>
@@ -109,55 +84,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <Settings className="h-5 w-5 text-gray-600" />
             </button>
 
-            {/* Notifications */}
-            <div className="relative" ref={notificationsRef}>
-              <button 
-                className="p-2 rounded-md hover:bg-gray-100 relative"
-                onClick={() => setShowNotifications(!showNotifications)}
-                title="Notificaciones"
-              >
-                <Bell className="h-6 w-6 text-gray-600" />
-                {notifications.length > 0 && (
-                  <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
-                )}
-              </button>
-
-              {/* Notifications Dropdown */}
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                  <div className="p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900">Notificaciones</h3>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.length > 0 ? (
-                      notifications.map((notification) => (
-                        <div key={notification.id} className="p-4 border-b border-gray-100 hover:bg-gray-50">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="text-sm font-medium text-gray-900">{notification.title}</h4>
-                              <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                            </div>
-                            <span className="text-xs text-gray-500 ml-2">{notification.time}</span>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-gray-500">
-                        No hay notificaciones
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3 border-t border-gray-200">
-                    <button 
-                      onClick={() => setShowNotifications(false)}
-                      className="w-full text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      Cerrar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Indicador de notificaciones (oculto en producción) */}
+            {!isProd && (
+              <ErrorBoundary fallback={<div className="hidden" />}>
+                <AINotificationIndicator />
+              </ErrorBoundary>
+            )}
             
             {/* User Profile */}
             <div className="relative" ref={userMenuRef}>

@@ -240,11 +240,12 @@ const Register: React.FC = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nombre</label>
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">Nombre</label>
                   <div className="mt-1 relative">
                     <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <input
                       {...register('firstName')}
+                      id="firstName"
                       type="text"
                       className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
                         errors.firstName ? 'border-red-300' : 'border-gray-300'
@@ -258,11 +259,12 @@ const Register: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Apellido</label>
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">Apellido</label>
                   <div className="mt-1 relative">
                     <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <input
                       {...register('lastName')}
+                      id="lastName"
                       type="text"
                       className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
                         errors.lastName ? 'border-red-300' : 'border-gray-300'
@@ -277,12 +279,14 @@ const Register: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <label htmlFor="regEmail" className="block text-sm font-medium text-gray-700">Email</label>
                 <div className="mt-1 relative">
                   <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                   <input
                     {...register('email')}
+                    id="regEmail"
                     type="email"
+                    autoComplete="email"
                     className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
                       errors.email ? 'border-red-300' : 'border-gray-300'
                     } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
@@ -295,12 +299,14 @@ const Register: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Teléfono</label>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Teléfono</label>
                 <div className="mt-1 relative">
                   <Phone className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                   <input
                     {...register('phone')}
+                    id="phone"
                     type="tel"
+                    autoComplete="tel"
                     className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
                       errors.phone ? 'border-red-300' : 'border-gray-300'
                     } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
@@ -314,12 +320,14 @@ const Register: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Contraseña</label>
+                  <label htmlFor="regPassword" className="block text-sm font-medium text-gray-700">Contraseña</label>
                   <div className="mt-1 relative">
                     <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <input
                       {...register('password')}
+                      id="regPassword"
                       type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       className={`pl-10 pr-10 appearance-none relative block w-full px-3 py-2 border ${
                         errors.password ? 'border-red-300' : 'border-gray-300'
                       } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
@@ -343,12 +351,14 @@ const Register: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Confirmar Contraseña</label>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirmar Contraseña</label>
                   <div className="mt-1 relative">
                     <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <input
                       {...register('confirmPassword')}
+                      id="confirmPassword"
                       type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       className={`pl-10 pr-10 appearance-none relative block w-full px-3 py-2 border ${
                         errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                       } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
@@ -390,11 +400,12 @@ const Register: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-900 mb-4">Información de la Finca</h3>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700">Nombre de la Finca</label>
+                <label htmlFor="farmName" className="block text-sm font-medium text-gray-700">Nombre de la Finca</label>
                 <div className="mt-1 relative">
                   <Home className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                   <input
                     {...register('farmName')}
+                    id="farmName"
                     type="text"
                     className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
                       errors.farmName ? 'border-red-300' : 'border-gray-300'
@@ -409,11 +420,12 @@ const Register: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Departamento</label>
+                  <label htmlFor="department" className="block text-sm font-medium text-gray-700">Departamento</label>
                   <div className="mt-1 relative">
                     <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <select
                       {...register('department')}
+                      id="department"
                       className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
                         errors.department ? 'border-red-300' : 'border-gray-300'
                       } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
@@ -434,11 +446,12 @@ const Register: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Municipio</label>
+                  <label htmlFor="municipality" className="block text-sm font-medium text-gray-700">Municipio</label>
                   <div className="mt-1 relative">
                     <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <select
                       {...register('municipality')}
+                      id="municipality"
                       className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
                         errors.municipality ? 'border-red-300' : 'border-gray-300'
                       } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
@@ -457,10 +470,11 @@ const Register: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Dirección</label>
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700">Dirección</label>
                 <div className="mt-1">
                   <textarea
                     {...register('address')}
+                    id="address"
                     rows={3}
                     className={`appearance-none relative block w-full px-3 py-2 border ${
                       errors.address ? 'border-red-300' : 'border-gray-300'
@@ -475,10 +489,11 @@ const Register: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Tamaño de la Finca (hectáreas)</label>
+                  <label htmlFor="farmSize" className="block text-sm font-medium text-gray-700">Tamaño de la Finca (hectáreas)</label>
                   <div className="mt-1">
                     <input
                       {...register('farmSize', { valueAsNumber: true })}
+                      id="farmSize"
                       type="number"
                       step="0.1"
                       min="0.1"
@@ -494,10 +509,11 @@ const Register: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Años de Experiencia</label>
+                  <label htmlFor="experience" className="block text-sm font-medium text-gray-700">Años de Experiencia</label>
                   <div className="mt-1">
                     <input
                       {...register('experience', { valueAsNumber: true })}
+                      id="experience"
                       type="number"
                       min="0"
                       className={`appearance-none relative block w-full px-3 py-2 border ${
@@ -542,17 +558,22 @@ const Register: React.FC = () => {
                   Variedades de Café <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {COFFEE_VARIETIES.map(variety => (
-                    <label key={variety} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={watchedCoffeeVarieties.includes(variety)}
-                        onChange={() => toggleCoffeeVariety(variety)}
-                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">{variety}</span>
-                    </label>
-                  ))}
+                  {COFFEE_VARIETIES.map(variety => {
+                    const id = `coffeeVariety-${variety.replace(/\s+/g, '-')}`;
+                    return (
+                      <div key={variety} className="flex items-center">
+                        <input
+                          id={id}
+                          name={`coffeeVarieties-${variety}`}
+                          type="checkbox"
+                          checked={watchedCoffeeVarieties.includes(variety)}
+                          onChange={() => toggleCoffeeVariety(variety)}
+                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        />
+                        <label htmlFor={id} className="ml-2 text-sm text-gray-700">{variety}</label>
+                      </div>
+                    );
+                  })}
                 </div>
                 {errors.coffeeVarieties && (
                   <p className="mt-1 text-sm text-red-600">{errors.coffeeVarieties.message}</p>
@@ -564,28 +585,35 @@ const Register: React.FC = () => {
                   Certificaciones (opcional)
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {CERTIFICATIONS.map(certification => (
-                    <label key={certification} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={watchedCertifications.includes(certification)}
-                        onChange={() => toggleCertification(certification)}
-                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">{certification}</span>
-                    </label>
-                  ))}
+                  {CERTIFICATIONS.map(certification => {
+                    const id = `cert-${certification.replace(/\s+/g, '-')}`;
+                    return (
+                      <div key={certification} className="flex items-center">
+                        <input
+                          id={id}
+                          name={`certifications-${certification}`}
+                          type="checkbox"
+                          checked={watchedCertifications.includes(certification)}
+                          onChange={() => toggleCertification(certification)}
+                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        />
+                        <label htmlFor={id} className="ml-2 text-sm text-gray-700">{certification}</label>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="border-t pt-6">
-                <label className="flex items-center">
+                <div className="flex items-center">
                   <input
                     {...register('terms')}
+                    id="terms"
+                    name="terms"
                     type="checkbox"
                     className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                   />
-                  <span className="ml-2 text-sm text-gray-700">
+                  <label htmlFor="terms" className="ml-2 text-sm text-gray-700">
                     Acepto los{' '}
                     <a href="#" className="text-green-600 hover:text-green-500">
                       términos y condiciones
@@ -594,8 +622,8 @@ const Register: React.FC = () => {
                     <a href="#" className="text-green-600 hover:text-green-500">
                       política de privacidad
                     </a>
-                  </span>
-                </label>
+                  </label>
+                </div>
                 {errors.terms && (
                   <p className="mt-1 text-sm text-red-600">{errors.terms.message}</p>
                 )}

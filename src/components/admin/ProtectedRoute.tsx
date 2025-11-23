@@ -38,7 +38,25 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Redirigir al login si no está autenticado
   if (!isAuthenticated || !currentAdmin) {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    // Si hay sesión general de usuario cafetero/trabajador, redirigir al dashboard público
+    try {
+      const rawUser = localStorage.getItem('user');
+      if (rawUser) {
+        const parsed = JSON.parse(rawUser);
+        const role = parsed?.role;
+        if (role === 'coffee_grower' || role === 'trabajador') {
+          return <Navigate to="/dashboard" replace />;
+        }
+      }
+    } catch {}
+
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Si el usuario no pertenece al contexto admin, redirigir al dashboard público
+  const adminRoles = ['super_admin', 'admin', 'moderator'];
+  if (!adminRoles.includes(currentAdmin.role as any)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   // Verificar rol requerido

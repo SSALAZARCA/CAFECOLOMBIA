@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'cafe-colombia-api',
-      script: './api/dist/server.js',
+      script: './api/server.cjs',
       instances: 'max', // Usar todos los cores disponibles
       exec_mode: 'cluster',
       env: {

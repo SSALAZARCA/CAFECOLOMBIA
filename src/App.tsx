@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Home from "@/pages/Home";
-import Login from "@/pages/Login";
+import LandingPage from "@/pages/LandingPage";
+import LoginUniversal from "@/pages/LoginUniversal";
 import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
 import Finca from "@/pages/Finca";
@@ -12,7 +12,6 @@ import OptimizacionIA from "@/pages/OptimizacionIA";
 import AnalisisMercado from "@/pages/AnalisisMercado";
 import Traceability from "@/pages/Traceability";
 import AdminLayout from "@/components/admin/AdminLayout";
-import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminCoffeeGrowers from "@/pages/admin/AdminCoffeeGrowers";
@@ -27,6 +26,7 @@ import AdminSecurity from "@/pages/admin/AdminSecurity";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminProfile from "@/pages/admin/AdminProfile";
 import ProtectedRoute from "@/components/admin/ProtectedRoute";
+import ProtectedHome from "@/pages/ProtectedHome";
 import { offlineDB } from "./utils/offlineDB";
 import { PERMISSIONS } from "@/hooks/usePermissions";
 import { syncManager } from "./utils/syncManager";
@@ -35,8 +35,8 @@ import { DEVICE_DETECTION } from "./utils/pwaConfig";
 import { initializeSampleData } from "./utils/sampleData";
 import { pushNotificationService } from "./services/pushNotificationService";
 import { cloudInitializer } from "./services/cloudInitializer";
-import NotificationCenter from "./components/NotificationCenter";
 import ErrorBoundary from "./components/ErrorBoundary";
+import RootRedirect from "./components/RootRedirect";
 import { Toaster } from "sonner";
 
 export default function App() {
@@ -51,39 +51,21 @@ export default function App() {
         // Inicializar datos de ejemplo
         await initializeSampleData();
 
-        // Configurar Service Worker
-        if (DEVICE_DETECTION.supportsServiceWorker()) {
-          const registration = await navigator.serviceWorker.register('/sw.js');
-          console.log('✅ Service Worker registrado:', registration);
-
-          // Configurar sincronización en background
-          if (DEVICE_DETECTION.supportsBackgroundSync()) {
-            await syncManager.registerBackgroundSync();
-            console.log('✅ Background Sync configurado');
-          }
-
-          // Configurar notificaciones
-        if (DEVICE_DETECTION.supportsNotifications()) {
-          notificationManager.setupEventHandlers();
-          console.log('✅ Notificaciones configuradas');
+        // Inicialización de PWA (el Service Worker se registra automáticamente por VitePWA)
+        if (DEVICE_DETECTION.supportsBackgroundSync()) {
+          await syncManager.registerBackgroundSync();
         }
 
-        // Inicializar servicios en la nube
+        if (DEVICE_DETECTION.supportsNotifications()) {
+          notificationManager.setupEventHandlers();
+        }
+
         try {
           const initResult = await cloudInitializer.initialize();
           if (initResult.success) {
-            console.log('✅ Servicios en la nube inicializados');
-            
-            // Inicializar notificaciones push
             await pushNotificationService.initialize();
-            console.log('✅ Notificaciones push configuradas');
-          } else {
-            console.warn('⚠️ Algunos servicios en la nube no se pudieron inicializar:', initResult.errors);
           }
-        } catch (error) {
-          console.warn('⚠️ Error inicializando servicios en la nube:', error);
-        }
-        }
+        } catch {}
 
         // Configurar listeners para eventos de conexión
         window.addEventListener('online', () => {
@@ -141,16 +123,6 @@ export default function App() {
       <Router>
         <div className="relative">
           <Routes>
-            <Route path="/" element={
-              <ErrorBoundary>
-                <Home />
-              </ErrorBoundary>
-            } />
-            <Route path="/login" element={
-              <ErrorBoundary>
-                <Login />
-              </ErrorBoundary>
-            } />
             <Route path="/register" element={
               <ErrorBoundary>
                 <Register />
@@ -198,10 +170,24 @@ export default function App() {
             } />
             <Route path="/other" element={<div className="text-center text-xl">Other Page - Coming Soon</div>} />
             
-            {/* Admin Routes */}
+            {/* Ruta principal - Redirección automática */}
+            <Route path="/" element={
+              <ErrorBoundary>
+                <RootRedirect />
+              </ErrorBoundary>
+            } />
+            
+            {/* Login unificado */}
+            <Route path="/login" element={
+              <ErrorBoundary>
+                <LoginUniversal />
+              </ErrorBoundary>
+            } />
+            
+            {/* Admin Routes - Login unificado */}
             <Route path="/admin/login" element={
               <ErrorBoundary>
-                <AdminLogin />
+                <LoginUniversal />
               </ErrorBoundary>
             } />
             <Route path="/admin/*" element={
@@ -210,27 +196,27 @@ export default function App() {
                   <AdminLayout>
                     <Routes>
                       <Route index element={
-                        <ProtectedRoute requiredPermissions={[PERMISSIONS.DASHBOARD_VIEW]}>
+                        <ProtectedRoute requiredRole="admin" requiredPermissions={[PERMISSIONS.DASHBOARD_VIEW]}>
                           <AdminDashboard />
                         </ProtectedRoute>
                       } />
                       <Route path="dashboard" element={
-                        <ProtectedRoute requiredPermissions={[PERMISSIONS.DASHBOARD_VIEW]}>
+                        <ProtectedRoute requiredRole="admin" requiredPermissions={[PERMISSIONS.DASHBOARD_VIEW]}>
                           <AdminDashboard />
                         </ProtectedRoute>
                       } />
                       <Route path="users" element={
-                        <ProtectedRoute requiredPermissions={[PERMISSIONS.USERS_VIEW]}>
+                        <ProtectedRoute requiredRole="admin" requiredPermissions={[PERMISSIONS.USERS_VIEW]}>
                           <AdminUsers />
                         </ProtectedRoute>
                       } />
                       <Route path="coffee-growers" element={
-                        <ProtectedRoute requiredPermissions={[PERMISSIONS.GROWERS_VIEW]}>
+                        <ProtectedRoute requiredRole="admin" requiredPermissions={[PERMISSIONS.GROWERS_VIEW]}>
                           <AdminCoffeeGrowers />
                         </ProtectedRoute>
                       } />
                       <Route path="farms" element={
-                        <ProtectedRoute requiredPermissions={[PERMISSIONS.FARMS_VIEW]}>
+                        <ProtectedRoute requiredRole="admin" requiredPermissions={[PERMISSIONS.FARMS_VIEW]}>
                           <AdminFarms />
                         </ProtectedRoute>
                       } />
@@ -285,15 +271,6 @@ export default function App() {
               </ErrorBoundary>
             } />
           </Routes>
-          
-          {/* Centro de Notificaciones con Error Boundary */}
-          <ErrorBoundary fallback={<div className="hidden" />}>
-            <NotificationCenter 
-              position="top-right"
-              maxVisible={5}
-              autoHide={true}
-            />
-          </ErrorBoundary>
           
           {/* Toaster para notificaciones del admin */}
           <Toaster position="top-right" richColors />

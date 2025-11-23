@@ -6,12 +6,27 @@
  */
 
 const mysql = require('mysql2/promise');
-const fs = require('fs').promises;
+const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
-require('dotenv').config();
+// Cargar .env desde api/.env.production si existe; fallback al root .env
+(() => {
+  try {
+    const apiProd = path.join(__dirname, '..', 'api', '.env.production');
+    const rootEnv = path.join(__dirname, '..', '.env');
+    if (fs.existsSync(apiProd)) {
+      require('dotenv').config({ path: apiProd });
+    } else if (fs.existsSync(rootEnv)) {
+      require('dotenv').config({ path: rootEnv });
+    } else {
+      require('dotenv').config();
+    }
+  } catch {
+    require('dotenv').config();
+  }
+})();
 
 // Configuración de colores para consola
 const colors = {
@@ -84,7 +99,7 @@ async function checkNetworkConnectivity() {
         for (const test of tests) {
             try {
                 const startTime = Date.now();
-                await execAsync(`ping -n 1 ${test.host}`, { timeout: 5000 });
+        await execAsync(`ping -c 1 ${test.host}`, { timeout: 5000 });
                 const responseTime = Date.now() - startTime;
                 
                 results.push({

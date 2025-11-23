@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Brain, Activity, TrendingUp, AlertTriangle, Bell, BarChart3, Eye, Zap } from 'lucide-react';
 import Layout from '../components/Layout';
 import AlertasTempranasIA from '../components/AlertasTempranasIA';
-import RiskAssessmentDashboard from '../components/RiskAssessmentDashboard';
 
 type AlertasIAView = 'overview' | 'early-warning' | 'risk-dashboard' | 'analytics';
 
@@ -257,7 +256,9 @@ const AlertasIA: React.FC = () => {
         )}
 
         {selectedView === 'risk-dashboard' && (
-          <RiskAssessmentDashboard />
+          <div className="p-6">
+            {/* Dashboard de riesgos eliminado para caficultores */}
+          </div>
         )}
 
         {selectedView === 'analytics' && (

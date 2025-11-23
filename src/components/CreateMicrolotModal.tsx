@@ -69,8 +69,8 @@ export default function CreateMicrolotModal({ isOpen, onClose, onSuccess }: Crea
       
       // Obtener datos de la base de datos offline
       const [lotsFromDB, harvestsFromDB] = await Promise.all([
-        offlineDB.lots.toArray(),
-        offlineDB.harvests.toArray()
+        offlineDB.lots?.toArray?.() || [],
+        offlineDB.harvests?.toArray?.() || []
       ]);
 
       // Formatear lotes
@@ -196,10 +196,10 @@ export default function CreateMicrolotModal({ isOpen, onClose, onSuccess }: Crea
   };
 
   const selectedLot = lots.find(lot => lot.id === formData.lotId);
-  const filteredHarvests = harvests.filter(harvest => harvest.lot.id === formData.lotId);
+      const filteredHarvests = harvests.filter(harvest => String(harvest.lot.id) === String(formData.lotId));
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center">

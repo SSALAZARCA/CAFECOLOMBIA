@@ -3,7 +3,6 @@ import { ArrowLeft, BarChart3, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import AnalisisMercadoIA from '../components/AnalisisMercadoIA';
-import MarketDashboard from '../components/MarketDashboard';
 
 const AnalisisMercado: React.FC = () => {
   const navigate = useNavigate();
@@ -66,7 +65,9 @@ const AnalisisMercado: React.FC = () => {
         {activeView === 'analysis' ? (
           <AnalisisMercadoIA />
         ) : (
-          <MarketDashboard />
+          <div className="p-6">
+            {/* Dashboard de mercado eliminado para caficultores */}
+          </div>
         )}
       </div>
       </div>

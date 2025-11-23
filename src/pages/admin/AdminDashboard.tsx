@@ -18,6 +18,7 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
   TrendingUp,
   TrendingDown
 } from 'lucide-react';
@@ -144,47 +145,79 @@ const AdminDashboard: React.FC = () => {
       
       console.log('🚀 Starting dashboard data load...');
       
-      // Cargar métricas principales
-      console.log('📊 Loading dashboard stats...');
-      const metricsData = await adminHttpClient.get('/api/admin/dashboard/stats');
-      console.log('✅ Dashboard stats loaded:', metricsData);
-      
+      // Cargar métricas principales reales desde backend
+      console.log('📊 Loading dashboard metrics...');
+      const metricsRes = await adminHttpClient.get('/api/admin/dashboard/metrics');
+      const m = metricsRes?.data || {};
+      console.log('✅ Dashboard metrics loaded:', m);
+
+      // Cargar totales sin filtro de período
+      console.log('📊 Loading analytics totals...');
+      const totalsRes = await adminHttpClient.get('/api/admin/analytics/totals');
+      const totals = totalsRes?.data?.metrics || {};
+      console.log('✅ Analytics totals loaded:', totals);
+
+      // Cargar crecimiento y tasas
+      const overviewRes = await adminHttpClient.get(`/api/admin/analytics/overview?period=${selectedPeriod}`);
+      const overview = overviewRes?.data?.metrics || {};
+
+      const usersTotal = Number(totals.totalUsers ?? m.users?.total ?? 0);
+      const usersActive = Number(m.users?.active ?? 0);
+
       setMetrics({
-        totalUsers: metricsData.users,
-        totalCoffeeGrowers: metricsData.users * 0.7, // Estimación
-        totalFarms: metricsData.users * 0.5, // Estimación
-        totalSubscriptions: metricsData.admins * 10, // Estimación
-        monthlyRevenue: 15000,
-        activePayments: 25,
-        systemActivity: 85,
+        totalUsers: usersTotal,
+        totalCoffeeGrowers: Number(m.coffee_growers?.total ?? 0),
+        totalFarms: Number(m.farms?.total ?? 0),
+        totalSubscriptions: Number(totals.totalSubscriptions ?? m.subscriptions?.total ?? 0),
+        monthlyRevenue: Number(m.payments?.revenue_this_month ?? 0),
+        activePayments: Number(m.payments?.successful ?? 0),
+        systemActivity: usersTotal ? Math.round((usersActive / usersTotal) * 100) : 0,
         growthRates: {
-          users: 12.5,
-          revenue: 8.3,
-          subscriptions: 15.2
+          users: Number(overview.userGrowth ?? 0),
+          revenue: Number(overview.revenueGrowth ?? 0),
+          subscriptions: 0
         }
       });
       
       // Cargar datos de gráficos
       console.log('📈 Loading chart data...');
-      const chartData = await adminHttpClient.get(`/admin/dashboard/charts?period=${selectedPeriod}`);
-      console.log('✅ Chart data loaded:', chartData);
-      
+      const chartsRes = await adminHttpClient.get(`/api/admin/dashboard/charts`);
+      const charts = chartsRes?.data || {};
+      console.log('✅ Chart data loaded:', charts);
+
+      const monthlyRevenue = Array.isArray(charts.monthly_revenue)
+        ? charts.monthly_revenue.map((r: any) => ({ month: r.month, revenue: Number(r.revenue || 0), subscriptions: 0 }))
+        : [];
+
+      const subscriptionsByPlan = Array.isArray(charts.subscriptions_by_plan)
+        ? charts.subscriptions_by_plan.map((item: any, index: number) => ({
+            name: item.plan_name,
+            value: Number(item.count || 0),
+            color: ['#3B82F6', '#10B981', '#F59E0B'][index] || '#6B7280'
+          }))
+        : [];
+
+      const userRegistrations = Array.isArray(charts.user_registrations)
+        ? charts.user_registrations.map((u: any) => ({ month: u.month, users: Number(u.count || 0), growers: Math.round(Number(u.count || 0) * 0.7) }))
+        : [];
+
+      const totalPaymentsCount = Array.isArray(charts.payment_methods)
+        ? charts.payment_methods.reduce((acc: number, m: any) => acc + Number(m.count || 0), 0)
+        : 0;
+
+      const paymentMethods = Array.isArray(charts.payment_methods)
+        ? charts.payment_methods.map((m: any) => ({
+            method: m.method,
+            count: Number(m.count || 0),
+            percentage: totalPaymentsCount ? Math.round((Number(m.count || 0) / totalPaymentsCount) * 100) : 0
+          }))
+        : [];
+
       setChartData({
-        userRegistrations: [
-          { month: 'Oct', users: 10, growers: 8 },
-          { month: 'Nov', users: 25, growers: 20 }
-        ],
-        monthlyRevenue: chartData.revenueData,
-        subscriptionsByPlan: chartData.subscriptionDistribution.map((item: any, index: number) => ({
-          name: item.name,
-          value: item.value,
-          color: ['#3B82F6', '#10B981', '#F59E0B'][index] || '#6B7280'
-        })),
-        paymentMethods: [
-          { method: 'Tarjeta', count: 45, percentage: 60 },
-          { method: 'Transferencia', count: 25, percentage: 33 },
-          { method: 'Efectivo', count: 5, percentage: 7 }
-        ]
+        userRegistrations,
+        monthlyRevenue,
+        subscriptionsByPlan,
+        paymentMethods
       });
       
       console.log('🎉 Dashboard data loaded successfully!');
@@ -361,7 +394,7 @@ const AdminDashboard: React.FC = () => {
                 className="cursor-pointer transform hover:scale-105 transition-transform"
               >
                 <MetricCard
-                  title="Suscripciones Activas"
+                  title="Suscripciones Totales"
                   value={metrics.totalSubscriptions.toLocaleString()}
                   change={metrics.growthRates.subscriptions}
                   icon={CreditCard}
@@ -442,7 +475,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Gráficos */}
-      {chartData && (
+      {chartData && Array.isArray(chartData.subscriptionsByPlan) && Array.isArray(chartData.monthlyRevenue) && Array.isArray(chartData.userRegistrations) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Registros de usuarios */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -450,7 +483,7 @@ const AdminDashboard: React.FC = () => {
               Registros de Usuarios y Caficultores
             </h3>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData.userRegistrations}>
+              <LineChart data={chartData.userRegistrations ?? []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
@@ -480,7 +513,7 @@ const AdminDashboard: React.FC = () => {
               Ingresos y Suscripciones
             </h3>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={chartData.monthlyRevenue}>
+              <AreaChart data={chartData.monthlyRevenue ?? []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
@@ -523,7 +556,7 @@ const AdminDashboard: React.FC = () => {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {chartData.subscriptionsByPlan.map((entry, index) => (
+                  {(chartData.subscriptionsByPlan ?? []).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -538,7 +571,7 @@ const AdminDashboard: React.FC = () => {
               Métodos de Pago Utilizados
             </h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData.paymentMethods}>
+              <BarChart data={chartData.paymentMethods ?? []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="method" />
                 <YAxis />

@@ -191,16 +191,23 @@
             window.location.href = '/';
         }
         
-        function checkConnection() {
+        async function checkConnection() {
             const status = document.getElementById('status');
-            
+            try {
+                // Validar conectividad real al backend
+                const res = await fetch('/api/health', { cache: 'no-store' });
+                if (res.ok) {
+                    status.className = 'status online';
+                    status.innerHTML = '<strong>Estado:</strong> Conexión restaurada - Redirigiendo...';
+                    setTimeout(() => { window.location.href = '/'; }, 1200);
+                    return;
+                }
+            } catch {}
+            // Fallback: usar navigator.onLine
             if (navigator.onLine) {
                 status.className = 'status online';
-                status.innerHTML = '<strong>Estado:</strong> Conexión restaurada - Redirigiendo...';
-                
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 1500);
+                status.innerHTML = '<strong>Estado:</strong> Conexión detectada - intentando cargar aplicación...';
+                setTimeout(() => { window.location.href = '/'; }, 1500);
             } else {
                 status.className = 'status offline';
                 status.innerHTML = '<strong>Estado:</strong> Sin conexión a internet';
@@ -208,14 +215,20 @@
         }
         
         // Verificar conexión automáticamente
-        window.addEventListener('online', () => {
+        window.addEventListener('online', async () => {
             const status = document.getElementById('status');
+            try {
+                const res = await fetch('/api/health', { cache: 'no-store' });
+                if (res.ok) {
+                    status.className = 'status online';
+                    status.innerHTML = '<strong>Estado:</strong> Conexión restaurada - Redirigiendo...';
+                    setTimeout(() => { window.location.href = '/'; }, 1200);
+                    return;
+                }
+            } catch {}
             status.className = 'status online';
-            status.innerHTML = '<strong>Estado:</strong> Conexión restaurada - Redirigiendo...';
-            
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
+            status.innerHTML = '<strong>Estado:</strong> Conexión detectada - intentando cargar aplicación...';
+            setTimeout(() => { window.location.href = '/'; }, 1500);
         });
         
         window.addEventListener('offline', () => {

@@ -109,6 +109,60 @@ router.get('/overview', [
   }
 });
 
+// GET /admin/analytics/totals - Métricas totales sin filtro de período
+router.get('/totals', async (_req, res) => {
+  try {
+    const [totalUsers] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM users'
+    );
+
+    const [totalRevenue] = await pool.execute<RowDataPacket[]>(
+      'SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE status = "completed"'
+    );
+
+    const [totalSubscriptions] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM subscriptions'
+    );
+
+    const [activeSubscriptions] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM subscriptions WHERE status = "active"'
+    );
+
+    const [totalPayments] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM payments'
+    );
+
+    const [successfulPayments] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM payments WHERE status = "completed"'
+    );
+
+    const successRate = totalPayments[0].count > 0
+      ? (successfulPayments[0].count / totalPayments[0].count) * 100
+      : 0;
+
+    res.json({
+      success: true,
+      data: {
+        metrics: {
+          totalUsers: totalUsers[0].count,
+          totalRevenue: totalRevenue[0].total,
+          totalSubscriptions: totalSubscriptions[0].count,
+          activeSubscriptions: activeSubscriptions[0].count,
+          totalPayments: totalPayments[0].count,
+          successfulPayments: successfulPayments[0].count,
+          successRate: Math.round(successRate * 100) / 100
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching totals analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener las métricas totales'
+    });
+  }
+});
+
 // GET /admin/analytics/revenue - Analíticas de ingresos
 router.get('/revenue', [
   query('period').optional().isIn(['7d', '30d', '90d', '1y']).withMessage('Período inválido'),
