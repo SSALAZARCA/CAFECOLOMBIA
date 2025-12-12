@@ -185,6 +185,48 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
   });
 });
 
+// Detectar tipo de usuario por email
+export const detectUserType = asyncHandler(async (req: Request, res: Response) => {
+  const { email } = req.query;
+
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ 
+      message: 'Email es requerido',
+      role: null 
+    });
+  }
+
+  // Buscar usuario por email
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      isActive: true,
+    },
+  });
+
+  if (!user) {
+    return res.json({ 
+      message: 'Usuario no encontrado',
+      role: null 
+    });
+  }
+
+  if (!user.isActive) {
+    return res.json({ 
+      message: 'Usuario inactivo',
+      role: null 
+    });
+  }
+
+  res.json({
+    message: 'Tipo de usuario detectado',
+    role: user.role,
+  });
+});
+
 // Cambiar contraseña
 export const changePassword = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;

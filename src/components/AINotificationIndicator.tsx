@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Bell, BellRing, X, Check, CheckCheck, AlertTriangle, Info, AlertCircle } from 'lucide-react';
+import { Bell, BellRing, X, CheckCheck, AlertTriangle, Info, AlertCircle } from 'lucide-react';
 import { useAINotifications } from '../hooks/useAINotifications';
-import { AgentType } from '../types/ai';
+import type { AIAgentType, AINotification } from '../services/aiService';
 
 interface AINotificationIndicatorProps {
   className?: string;
@@ -17,18 +17,17 @@ const AINotificationIndicator: React.FC<AINotificationIndicatorProps> = ({
   const {
     notifications,
     unreadCount,
-    stats,
     isLoading,
-    permissionGranted,
+    error,
     markAsRead,
     markAllAsRead,
-    requestPermission
+    clearError
   } = useAINotifications();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Obtener icono según el tipo de agente
-  const getAgentIcon = (agentType: AgentType) => {
+  const getAgentIcon = (agentType: AIAgentType) => {
     const icons = {
       phytosanitary: '🔬',
       predictive: '📊',
@@ -38,31 +37,32 @@ const AINotificationIndicator: React.FC<AINotificationIndicatorProps> = ({
     return icons[agentType] || '🔔';
   };
 
-  // Obtener color según la severidad
-  const getSeverityColor = (severity: string) => {
+  // Mapear color según prioridad
+  const getPriorityColor = (priority: AINotification['priority']) => {
     const colors = {
-      success: 'text-green-600 bg-green-50',
-      info: 'text-blue-600 bg-blue-50',
-      warning: 'text-yellow-600 bg-yellow-50',
-      error: 'text-red-600 bg-red-50'
-    };
-    return colors[severity as keyof typeof colors] || colors.info;
+      low: 'text-gray-600 bg-gray-50',
+      medium: 'text-blue-600 bg-blue-50',
+      high: 'text-yellow-700 bg-yellow-50',
+      critical: 'text-red-700 bg-red-50'
+    } as const;
+    return colors[priority] || colors.medium;
   };
 
-  // Obtener icono según la severidad
-  const getSeverityIcon = (severity: string) => {
+  // Mapear icono según prioridad
+  const getPriorityIcon = (priority: AINotification['priority']) => {
     const icons = {
-      success: Check,
-      info: Info,
-      warning: AlertTriangle,
-      error: AlertCircle
-    };
-    const IconComponent = icons[severity as keyof typeof icons] || Info;
+      low: Info,
+      medium: Info,
+      high: AlertTriangle,
+      critical: AlertCircle
+    } as const;
+    const IconComponent = icons[priority] || Info;
     return <IconComponent className="w-4 h-4" />;
   };
 
   // Formatear tiempo relativo
-  const formatRelativeTime = (date: Date) => {
+  const formatRelativeTime = (timestamp: string) => {
+    const date = new Date(timestamp);
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
     
@@ -73,15 +73,10 @@ const AINotificationIndicator: React.FC<AINotificationIndicatorProps> = ({
   };
 
   // Manejar click en notificación
-  const handleNotificationClick = async (notificationId: number | undefined) => {
+  const handleNotificationClick = async (notificationId: string | undefined) => {
     if (notificationId) {
       await markAsRead(notificationId);
     }
-  };
-
-  // Solicitar permisos si no están concedidos
-  const handleRequestPermission = async () => {
-    await requestPermission();
   };
 
   const recentNotifications = notifications.slice(0, maxNotificationsShown);
@@ -136,20 +131,18 @@ const AINotificationIndicator: React.FC<AINotificationIndicatorProps> = ({
             </div>
           </div>
 
-          {/* Solicitar permisos si no están concedidos */}
-          {!permissionGranted && (
-            <div className="p-4 bg-yellow-50 border-b border-yellow-200">
+          {/* Mostrar errores del hook */}
+          {error && (
+            <div className="p-4 bg-red-50 border-b border-red-200">
               <div className="flex items-center space-x-2">
-                <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                <AlertCircle className="w-5 h-5 text-red-600" />
                 <div className="flex-1">
-                  <p className="text-sm text-yellow-800">
-                    Habilita las notificaciones para recibir alertas importantes
-                  </p>
+                  <p className="text-sm text-red-800">{error}</p>
                   <button
-                    onClick={handleRequestPermission}
-                    className="text-sm text-yellow-600 hover:text-yellow-800 underline"
+                    onClick={clearError}
+                    className="text-sm text-red-600 hover:text-red-800 underline"
                   >
-                    Habilitar notificaciones
+                    Ocultar
                   </button>
                 </div>
               </div>
@@ -174,7 +167,7 @@ const AINotificationIndicator: React.FC<AINotificationIndicatorProps> = ({
                   <div
                     key={notification.id}
                     className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                      !notification.isRead ? 'bg-blue-50' : ''
+                      !notification.read ? 'bg-blue-50' : ''
                     }`}
                     onClick={() => handleNotificationClick(notification.id)}
                   >
@@ -190,11 +183,11 @@ const AINotificationIndicator: React.FC<AINotificationIndicatorProps> = ({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2">
                           <h4 className={`text-sm font-medium ${
-                            !notification.isRead ? 'text-gray-900' : 'text-gray-700'
+                            !notification.read ? 'text-gray-900' : 'text-gray-700'
                           }`}>
                             {notification.title}
                           </h4>
-                          {!notification.isRead && (
+                          {!notification.read && (
                             <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
                           )}
                         </div>
@@ -204,17 +197,17 @@ const AINotificationIndicator: React.FC<AINotificationIndicatorProps> = ({
                         </p>
 
                         <div className="flex items-center justify-between mt-2">
-                          {/* Severidad */}
+                          {/* Prioridad */}
                           <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs ${
-                            getSeverityColor(notification.severity)
+                            getPriorityColor(notification.priority)
                           }`}>
-                            {getSeverityIcon(notification.severity)}
-                            <span className="capitalize">{notification.severity}</span>
+                            {getPriorityIcon(notification.priority)}
+                            <span className="capitalize">{notification.priority}</span>
                           </div>
 
                           {/* Tiempo */}
                           <span className="text-xs text-gray-400">
-                            {formatRelativeTime(notification.createdAt)}
+                            {formatRelativeTime(notification.timestamp)}
                           </span>
                         </div>
                       </div>
@@ -225,29 +218,6 @@ const AINotificationIndicator: React.FC<AINotificationIndicatorProps> = ({
             )}
           </div>
 
-          {/* Footer con estadísticas */}
-          {stats && (
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
-              <div className="grid grid-cols-4 gap-2 text-center">
-                <div className="text-xs">
-                  <div className="text-lg">🔬</div>
-                  <div className="text-gray-600">{stats.byAgent.phytosanitary}</div>
-                </div>
-                <div className="text-xs">
-                  <div className="text-lg">📊</div>
-                  <div className="text-gray-600">{stats.byAgent.predictive}</div>
-                </div>
-                <div className="text-xs">
-                  <div className="text-lg">🤖</div>
-                  <div className="text-gray-600">{stats.byAgent.rag_assistant}</div>
-                </div>
-                <div className="text-xs">
-                  <div className="text-lg">⚡</div>
-                  <div className="text-gray-600">{stats.byAgent.optimization}</div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

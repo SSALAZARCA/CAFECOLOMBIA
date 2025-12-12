@@ -19,6 +19,7 @@ import auditRoutes from './routes/audit.js';
 import settingsRoutes from './routes/settings.js';
 import securityRoutes from './routes/security.js';
 import dashboardRoutes from './routes/dashboard.js';
+import aiRoutes from './routes/ai.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -30,7 +31,7 @@ const PORT = process.env.PORT || 3001;
 const corsOptions = {
   origin: process.env.CORS_ORIGIN ? 
     process.env.CORS_ORIGIN.split(',').map(origin => origin.trim()) : 
-    ['http://localhost:5173', 'http://localhost:5174'],
+    ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5176', 'http://localhost:5177', 'http://localhost:4174'],
   credentials: process.env.CORS_CREDENTIALS === 'true' || true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -48,8 +49,15 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Saltar rate limiting para health check
-    return req.path === '/api/health';
+    // Saltar rate limiting para health/ping
+    const path = req.path;
+    const original = req.originalUrl;
+    return (
+      path === '/health' ||
+      path === '/ping' ||
+      original === '/api/health' ||
+      original === '/api/ping'
+    );
   }
 });
 
@@ -74,7 +82,7 @@ app.get('/api/health', async (req, res) => {
       environment: process.env.NODE_ENV || 'development',
       database: 'connected'
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Health check failed:', error);
     res.status(503).json({
       status: 'unhealthy',
@@ -83,6 +91,16 @@ app.get('/api/health', async (req, res) => {
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
+});
+
+// Ping endpoint (respuesta rápida para monitoreo y diagnósticos)
+app.get('/api/ping', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'pong',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
 });
 
 // Endpoint de información de la API
@@ -94,6 +112,7 @@ app.get('/api', (req, res) => {
     timestamp: new Date().toISOString(),
     endpoints: {
       health: '/api/health',
+      ping: '/api/ping',
       auth: '/api/auth',
       users: '/api/users',
       coffeeGrowers: '/api/coffee-growers',
@@ -106,6 +125,7 @@ app.get('/api', (req, res) => {
       settings: '/api/settings',
       security: '/api/security',
       dashboard: '/api/dashboard'
+      , ai: '/api/ai'
     }
   });
 });
@@ -123,6 +143,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/security', securityRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Middleware para rutas no encontradas
 app.use('/api/*', (req, res) => {
@@ -147,8 +168,14 @@ async function startServer() {
     // Iniciar el servidor
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
+<<<<<<< HEAD
       console.log(`📍 API disponible en: http://0.0.0.0:${PORT}/api`);
       console.log(`🏥 Health check: http://0.0.0.0:${PORT}/api/health`);
+=======
+      console.log(`📍 API disponible en: http://localhost:${PORT}/api`);
+      console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`🔔 Ping: http://localhost:${PORT}/api/ping`);
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
       console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
       console.log(`📊 Base de datos: ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 3306}`);
     });

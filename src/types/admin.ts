@@ -17,6 +17,8 @@ export interface AdminUser {
   created_at?: string;
   updated_at?: string;
   last_login?: string;
+  // Indicador de super administrador
+  is_super_admin?: boolean;
 }
 
 export interface AdminSession {

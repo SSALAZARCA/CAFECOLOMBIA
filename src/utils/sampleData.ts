@@ -269,10 +269,58 @@ export async function initializeSampleData() {
     const existingLots = await offlineDB.lots.count();
     if (existingLots > 0) {
       console.log('✅ La base de datos ya contiene datos');
+      // Parche de compatibilidad: asegurar campos que esperan los módulos
+      try {
+        // Inventario: completar campos faltantes
+        const inventoryItems = await offlineDB.inventory.toArray();
+        for (const item of inventoryItems) {
+          const updates: any = {};
+          if (item.unitCost === undefined) updates.unitCost = 1000;
+          if (!item.supplier) updates.supplier = 'Proveedor Demo';
+          if (!item.purchaseDate) updates.purchaseDate = new Date().toISOString().slice(0, 10);
+          if (!item.batchNumber) updates.batchNumber = 'DEMO-001';
+          if (Object.keys(updates).length > 0) {
+            await offlineDB.inventory.update(item.id!, { ...updates, updatedAt: new Date().toISOString() });
+          }
+        }
+
+        // Monitoreo de plagas: normalizar severidad y fecha de detección
+        const pestItems = await offlineDB.pestMonitoring.toArray();
+        const severityMap: Record<string, string> = { Bajo: 'LOW', Medio: 'MEDIUM', Alto: 'HIGH', Crítico: 'CRITICAL' };
+        const pestTypeMap: Record<string, string> = {
+          'Broca del café': 'BROCA',
+          'Roya del café': 'ROYA',
+          'Minador de la hoja': 'MINADOR',
+          'Cochinilla': 'COCHINILLA',
+          'Nematodos': 'NEMATODOS'
+        };
+        for (const p of pestItems) {
+          const updates: any = {};
+          if (p.severity && severityMap[p.severity]) updates.severity = severityMap[p.severity];
+          if ((p as any).observationDate && !(p as any).detectionDate) updates.detectionDate = (p as any).observationDate;
+          if (p.pestType && pestTypeMap[p.pestType]) updates.pestType = pestTypeMap[p.pestType];
+          if (Object.keys(updates).length > 0) {
+            await offlineDB.pestMonitoring.update(p.id!, { ...updates, updatedAt: new Date().toISOString() });
+          }
+        }
+
+        // Cosechas: agregar harvestDate y qualityGrade si faltan
+        const harvests = await offlineDB.harvests.toArray();
+        for (const h of harvests) {
+          const updates: any = {};
+          if (!(h as any).harvestDate && (h as any).date) updates.harvestDate = (h as any).date;
+          if (!(h as any).qualityGrade && (h as any).quality) updates.qualityGrade = (h as any).quality;
+          if (Object.keys(updates).length > 0) {
+            await offlineDB.harvests.update(h.id!, { ...updates, updatedAt: new Date().toISOString() });
+          }
+        }
+      } catch (patchErr) {
+        console.warn('⚠️ Error aplicando parche de datos de ejemplo:', patchErr);
+      }
       return;
     }
 
-    // Agregar datos de ejemplo
+    // Agregar datos de ejemplo con mapeos compatibles con los módulos
     await offlineDB.transaction('rw', [
       offlineDB.lots,
       offlineDB.inventory,
@@ -281,11 +329,50 @@ export async function initializeSampleData() {
       offlineDB.harvests,
       offlineDB.expenses
     ], async () => {
-      await offlineDB.lots.bulkAdd(sampleData.lots);
-      await offlineDB.inventory.bulkAdd(sampleData.inventory);
+      // Lotes: asegurar campos opcionales
+      const mappedLots = sampleData.lots.map((lot) => ({
+        ...lot,
+        treeCount: (lot as any).treeCount ?? 2500,
+        density: (lot as any).density ?? 1000
+      }));
+
+      // Inventario: completar campos usados por el módulo
+      const mappedInventory = sampleData.inventory.map((item) => ({
+        ...item,
+        unitCost: (item as any).unitCost ?? 1000,
+        supplier: (item as any).supplier ?? 'Proveedor Demo',
+        purchaseDate: (item as any).purchaseDate ?? new Date().toISOString().slice(0, 10),
+        batchNumber: (item as any).batchNumber ?? 'DEMO-001'
+      }));
+
+      // Plagas: normalizar severidad, tipo y fecha
+      const severityMap: Record<string, string> = { Bajo: 'LOW', Medio: 'MEDIUM', Alto: 'HIGH', Crítico: 'CRITICAL' };
+      const pestTypeMap: Record<string, string> = {
+        'Broca del café': 'BROCA',
+        'Roya del café': 'ROYA',
+        'Minador de la hoja': 'MINADOR',
+        'Cochinilla': 'COCHINILLA',
+        'Nematodos': 'NEMATODOS'
+      };
+      const mappedPestMonitoring = sampleData.pestMonitoring.map((p) => ({
+        ...p,
+        severity: severityMap[p.severity] || p.severity,
+        detectionDate: (p as any).observationDate,
+        pestType: pestTypeMap[p.pestType] || p.pestType
+      }));
+
+      // Cosechas: agregar harvestDate y qualityGrade
+      const mappedHarvests = sampleData.harvests.map((h) => ({
+        ...h,
+        harvestDate: (h as any).date,
+        qualityGrade: (h as any).quality
+      }));
+
+      await offlineDB.lots.bulkAdd(mappedLots);
+      await offlineDB.inventory.bulkAdd(mappedInventory);
       await offlineDB.tasks.bulkAdd(sampleData.tasks);
-      await offlineDB.pestMonitoring.bulkAdd(sampleData.pestMonitoring);
-      await offlineDB.harvests.bulkAdd(sampleData.harvests);
+      await offlineDB.pestMonitoring.bulkAdd(mappedPestMonitoring);
+      await offlineDB.harvests.bulkAdd(mappedHarvests);
       await offlineDB.expenses.bulkAdd(sampleData.expenses);
     });
 

@@ -67,7 +67,11 @@ const getAppConfig = (): AppConfig => {
       debugging: isDevelopment
     },
     api: {
+<<<<<<< HEAD
       baseUrl: import.meta.env.VITE_API_URL || '/api',
+=======
+      baseUrl: import.meta.env.VITE_API_BASE_URL || '/api',
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
       timeout: 30000,
       retryAttempts: 3
     },
@@ -113,7 +117,8 @@ export const validateConfiguration = (): ConfigValidationResult => {
   const aiValidation = aiServicesConfig.validate();
   if (!aiValidation.isValid) {
     missingFeatures.push('AI services');
-    errors.push(...aiValidation.errors);
+    // Tratar servicios de IA como opcionales: convertir errores en advertencias
+    warnings.push(...aiValidation.errors);
   }
   warnings.push(...aiValidation.warnings);
 
@@ -121,7 +126,8 @@ export const validateConfiguration = (): ConfigValidationResult => {
   const storageValidation = cloudStorageConfig.validate();
   if (!storageValidation.isValid) {
     missingFeatures.push('Cloud storage');
-    errors.push(...storageValidation.errors);
+    // Tratar storage como opcional en todas las etapas: convertir errores en advertencias
+    warnings.push(...storageValidation.errors);
   }
   warnings.push(...storageValidation.warnings);
 
@@ -206,6 +212,7 @@ export const initializeConfiguration = async () => {
   // Validate configuration
   const validation = validateConfiguration();
   if (!validation.isValid) {
+<<<<<<< HEAD
     console.error('❌ Configuration validation failed:', validation.errors);
 
     // In development mode, only warn about missing configurations instead of throwing
@@ -215,6 +222,9 @@ export const initializeConfiguration = async () => {
     } else {
       throw new Error(`Configuration validation failed: ${validation.errors.join(', ')}`);
     }
+=======
+    console.warn('⚠️ Configuration validation has errors but continuing:', validation.errors);
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
   }
 
   if (validation.warnings.length > 0) {

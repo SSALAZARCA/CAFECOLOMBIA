@@ -30,7 +30,7 @@ module.exports = {
       ignore_watch: ['node_modules', 'logs', 'uploads', 'backups'],
       
       // Variables de entorno específicas
-      env_file: '.env',
+      env_file: 'api/.env',
       
       // Configuración de cluster
       kill_timeout: 5000,

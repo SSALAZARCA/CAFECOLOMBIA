@@ -38,13 +38,26 @@ export const useAINotifications = (
   const loadNotifications = useCallback(async () => {
     try {
       setError(null);
-      const data = await aiService.getNotifications(agentType);
-      
-      // Limitar el número de notificaciones y ordenar por timestamp
-      const sortedNotifications = data
+      const raw = await aiService.getNotifications(agentType);
+
+      // Normalizar estructura para evitar inconsistencias entre fuentes
+      const normalized = raw.map((n: any) => ({
+        id: String(n.id ?? n.notificationId ?? crypto.randomUUID()),
+        agentType: n.agentType ?? n.agent_type ?? 'predictive',
+        type: n.type ?? 'system_update',
+        title: n.title ?? n.header ?? 'Notificación',
+        message: n.message ?? n.body ?? '',
+        priority: n.priority ?? (n.severity === 'error' ? 'critical' : n.severity === 'warning' ? 'high' : n.severity === 'success' ? 'low' : 'medium'),
+        data: n.data ?? {},
+        read: Boolean(n.read ?? n.isRead ?? false),
+        timestamp: (typeof n.timestamp === 'string' ? n.timestamp : (n.createdAt instanceof Date ? n.createdAt.toISOString() : (n.createdAt ?? new Date().toISOString())))
+      })) as AINotification[];
+
+      // Limitar y ordenar por timestamp
+      const sortedNotifications = normalized
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, maxNotifications);
-      
+
       setNotifications(sortedNotifications);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading notifications');
@@ -54,10 +67,23 @@ export const useAINotifications = (
     }
   }, [agentType, maxNotifications]);
 
-  // Marcar notificación como leída
+  // Marcar notificación como leída (backend primero)
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
-      await aiService.markNotificationAsRead(notificationId);
+      const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
+      const endpoint = `${baseUrl}/api/ai/notifications/${encodeURIComponent(notificationId)}/read`;
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || localStorage.getItem('authToken')) : null;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      try {
+        const res = await fetch(endpoint, { method: 'POST', headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (_) {
+        // Fallback: marcar localmente si falla backend
+        await aiService.markNotificationAsRead(notificationId);
+      }
       
       // Actualizar estado local
       setNotifications(prev => 
@@ -73,17 +99,28 @@ export const useAINotifications = (
     }
   }, []);
 
-  // Marcar todas las notificaciones como leídas
+  // Marcar todas las notificaciones como leídas (backend primero)
   const markAllAsRead = useCallback(async () => {
     try {
-      const unreadNotifications = notifications.filter(n => !n.read);
-      
-      // Marcar todas como leídas en paralelo
-      await Promise.all(
-        unreadNotifications.map(notification => 
-          aiService.markNotificationAsRead(notification.id)
-        )
-      );
+      const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
+      const endpoint = `${baseUrl}/api/ai/notifications/read-all`;
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || localStorage.getItem('authToken')) : null;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      try {
+        const res = await fetch(endpoint, { method: 'POST', headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (_) {
+        // Fallback: marcar una por una localmente si falla backend
+        const unreadNotifications = notifications.filter(n => !n.read);
+        await Promise.all(
+          unreadNotifications.map(notification => 
+            aiService.markNotificationAsRead(notification.id)
+          )
+        );
+      }
       
       // Actualizar estado local
       setNotifications(prev => 
@@ -101,7 +138,7 @@ export const useAINotifications = (
       // Primero marcar como leída si no lo está
       const notification = notifications.find(n => n.id === notificationId);
       if (notification && !notification.read) {
-        await aiService.markNotificationAsRead(notificationId);
+        await markAsRead(notificationId);
       }
       
       // Remover de la lista local
@@ -112,7 +149,7 @@ export const useAINotifications = (
       setError(err instanceof Error ? err.message : 'Error dismissing notification');
       console.error('Error dismissing notification:', err);
     }
-  }, [notifications]);
+  }, [notifications, markAsRead]);
 
   // Refrescar notificaciones manualmente
   const refreshNotifications = useCallback(async () => {
@@ -167,60 +204,4 @@ export const useAINotifications = (
     refreshNotifications,
     clearError
   };
-};
-
-// Hook especializado para notificaciones críticas
-export const useCriticalNotifications = () => {
-  const { notifications, ...rest } = useAINotifications({
-    autoRefresh: true,
-    refreshInterval: 10000 // Refrescar cada 10 segundos para notificaciones críticas
-  });
-
-  const criticalNotifications = notifications.filter(n => 
-    n.priority === 'critical' || n.priority === 'high'
-  );
-
-  return {
-    notifications: criticalNotifications,
-    ...rest
-  };
-};
-
-// Hook para notificaciones por agente específico
-export const useAgentNotifications = (agentType: AIAgentType) => {
-  return useAINotifications({
-    agentType,
-    autoRefresh: true,
-    refreshInterval: 20000 // 20 segundos
-  });
-};
-
-// Hook para estadísticas de notificaciones
-export const useNotificationStats = () => {
-  const { notifications } = useAINotifications();
-
-  const stats = {
-    total: notifications.length,
-    unread: notifications.filter(n => !n.read).length,
-    byPriority: {
-      critical: notifications.filter(n => n.priority === 'critical').length,
-      high: notifications.filter(n => n.priority === 'high').length,
-      medium: notifications.filter(n => n.priority === 'medium').length,
-      low: notifications.filter(n => n.priority === 'low').length
-    },
-    byAgent: {
-      phytosanitary: notifications.filter(n => n.agentType === 'phytosanitary').length,
-      predictive: notifications.filter(n => n.agentType === 'predictive').length,
-      rag_assistant: notifications.filter(n => n.agentType === 'rag_assistant').length,
-      optimization: notifications.filter(n => n.agentType === 'optimization').length
-    },
-    byType: {
-      analysis_complete: notifications.filter(n => n.type === 'analysis_complete').length,
-      urgent_alert: notifications.filter(n => n.type === 'urgent_alert').length,
-      recommendation: notifications.filter(n => n.type === 'recommendation').length,
-      system_update: notifications.filter(n => n.type === 'system_update').length
-    }
-  };
-
-  return stats;
 };

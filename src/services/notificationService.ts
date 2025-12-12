@@ -54,7 +54,7 @@ export class NotificationService {
       }
 
       // Verificar soporte para Service Worker
-      if ('serviceWorker' in navigator) {
+      if ('serviceWorker' in navigator && window.location.protocol === 'https:' && !import.meta.env.DEV) {
         await this.registerServiceWorker();
       }
 

@@ -119,10 +119,20 @@ log "📁 Creando directorios necesarios..."
 mkdir -p uploads logs backups scripts
 
 log "🗄️ Ejecutando migraciones..."
-node scripts/migrate.js
+# Corregido a .cjs
+if [ -f "scripts/migrate.cjs" ]; then
+  node scripts/migrate.cjs || warning "Error en las migraciones"
+else
+  warning "scripts/migrate.cjs no encontrado, saltando migraciones"
+fi
 
 log "👤 Creando usuario administrador..."
-node scripts/create-admin.js
+# Corregido a .cjs
+if [ -f "scripts/create-admin.cjs" ]; then
+  node scripts/create-admin.cjs || warning "Error creando admin"
+else
+  warning "scripts/create-admin.cjs no encontrado, saltando creación de admin"
+fi
 
 log "🌐 Configurando Nginx..."
 sudo tee /etc/nginx/sites-available/cafecolombiaapp > /dev/null << EOF
@@ -194,12 +204,12 @@ log "🔒 Configurando SSL..."
 sudo certbot --nginx --non-interactive --agree-tos --email $SSL_EMAIL -d $DOMAIN -d www.$DOMAIN
 
 log "🔄 Configurando PM2..."
-cat > ecosystem.config.js << EOF
+cat > ecosystem.config.cjs << EOF
 module.exports = {
   apps: [
     {
       name: 'cafe-colombia-api',
-      script: './api/dist/server.js',
+      script: './api/server.cjs',
       instances: 2,
       exec_mode: 'cluster',
       env: {
@@ -219,7 +229,7 @@ module.exports = {
 };
 EOF
 
-pm2 start ecosystem.config.js
+pm2 start ecosystem.config.cjs
 pm2 save
 pm2 startup | tail -1 | sudo bash
 

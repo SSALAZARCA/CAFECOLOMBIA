@@ -122,7 +122,7 @@ export const API_ENDPOINTS = {
 
   // System
   system: {
-    health: '/api/health',
+    health: '/api/ping',
     version: '/api/version',
     config: '/api/config'
   }
@@ -177,8 +177,9 @@ export class ApiClient {
       signal
     } = options;
 
-    // Evitar proxy Vite en desarrollo, construir URL directo
-    const url = `${this.baseUrl.replace(/\/$/, '')}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    // Use relative URLs in development to leverage Vite proxy
+    const isDev = import.meta.env.MODE === 'development' || import.meta.env.DEV;
+    const url = isDev ? endpoint : `${this.baseUrl}${endpoint}`;
 
     // Always get fresh token from localStorage
     const token = localStorage.getItem('token');

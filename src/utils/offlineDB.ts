@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { 
+import type { 
   AIAnalysisResult, 
   PhytosanitaryAnalysis, 
   PredictiveAnalysis, 
@@ -23,6 +23,16 @@ export interface OfflineLot {
   plantingDate: string;
   status: string;
   coordinates?: string;
+  // Campos adicionales usados por módulos
+  treeCount?: number;
+  density?: number;
+  altitude?: number;
+  slope?: number;
+  exposure?: string;
+  soilType?: string;
+  notes?: string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
   lastSync?: Date;
   pendingSync?: boolean;
   action?: 'create' | 'update' | 'delete';
@@ -36,6 +46,13 @@ export interface OfflineInventory {
   unit: string;
   expirationDate?: string;
   location: string;
+  // Campos adicionales usados por módulos
+  unitCost?: number;
+  supplier?: string;
+  purchaseDate?: string;
+  batchNumber?: string;
+  createdAt?: string;
+  updatedAt?: string;
   lastSync?: Date;
   pendingSync?: boolean;
   action?: 'create' | 'update' | 'delete';
@@ -65,8 +82,16 @@ export interface OfflinePestMonitoring {
   severity: string;
   affectedArea: number;
   observationDate: string;
+  // Campos adicionales usados por módulos
+  detectionDate?: string;
+  symptoms?: string;
+  location?: string;
+  weatherConditions?: string;
+  photos?: string | string[];
+  recommendedActions?: string;
+  createdAt?: string;
+  updatedAt?: string;
   notes?: string;
-  photos?: string[];
   lastSync?: Date;
   pendingSync?: boolean;
   action?: 'create' | 'update' | 'delete';
@@ -79,8 +104,13 @@ export interface OfflineHarvest {
   date: string;
   quantity: number;
   quality: string;
+  // Campos adicionales usados por módulos
+  harvestDate?: string;
+  qualityGrade?: string;
   notes?: string;
   weather?: string;
+  createdAt?: string;
+  updatedAt?: string;
   lastSync?: Date;
   pendingSync?: boolean;
   action?: 'create' | 'update' | 'delete';
@@ -1516,3 +1546,13 @@ export class OfflineDatabase extends Dexie {
 
 // Instancia global de la base de datos
 export const offlineDB = new OfflineDatabase();
+export async function ensureOfflineDBReady() {
+  try {
+    if (!offlineDB.isOpen()) {
+      await offlineDB.open();
+    }
+  } catch (err) {
+    console.error('[offlineDB] Error al abrir la base de datos:', err);
+    throw err;
+  }
+}

@@ -7,7 +7,12 @@
   "scripts": {
     "start": "node server.cjs",
     "dev": "nodemon server.cjs",
+<<<<<<< HEAD
     "build": "echo 'Build simplificado - usando archivos JavaScript existentes'",
+=======
+    "build": "tsc --project ../tsconfig.server.json",
+    "postinstall": "echo 'Skipping api build on postinstall'",
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint . --ext .js,.ts",
@@ -31,7 +36,7 @@
     "jsonwebtoken": "^9.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.0.0",
     "express-rate-limit": "^7.1.5",
     "nodemailer": "^7.0.10",
     "uuid": "^9.0.1",

@@ -15,9 +15,9 @@ const dbConfig = {
   reconnect: true,
   connectionLimit: 10,
   queueLimit: 0,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: process.env.DB_SSL === 'true' ? {
+    rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'
+  } : undefined
 };
 
 // Pool de conexiones
@@ -61,7 +61,11 @@ const executeQuery = async (query, params = []) => {
   let connection;
   try {
     connection = await getConnection();
-    const [results] = await connection.execute(query, params);
+    // Convertir undefined a null para evitar errores de bind en mysql2
+    const safeParams = Array.isArray(params)
+      ? params.map(v => (v === undefined ? null : v))
+      : [];
+    const [results] = await connection.execute(query, safeParams);
     return results;
   } catch (error) {
     console.error('Error ejecutando query:', error);
@@ -74,15 +78,30 @@ const executeQuery = async (query, params = []) => {
 };
 
 // Ejecutar transacción
-const executeTransaction = async (queries) => {
+// Soporta dos firmas:
+// 1) executeTransaction([{ query, params }, ...])
+// 2) executeTransaction(async (connection) => { /* usar connection.execute(...) */ })
+const executeTransaction = async (arg) => {
   let connection;
   try {
     connection = await getConnection();
     await connection.beginTransaction();
 
+    // Firma con callback: permitir operaciones complejas con insertId, etc.
+    if (typeof arg === 'function') {
+      const result = await arg(connection);
+      await connection.commit();
+      return result;
+    }
+
+    // Firma con arreglo de queries simples
+    const queries = Array.isArray(arg) ? arg : [];
     const results = [];
     for (const { query, params } of queries) {
-      const [result] = await connection.execute(query, params || []);
+      const safeParams = Array.isArray(params)
+        ? params.map(v => (v === undefined ? null : v))
+        : [];
+      const [result] = await connection.execute(query, safeParams);
       results.push(result);
     }
 

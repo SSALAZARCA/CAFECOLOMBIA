@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAdminStore } from '@/stores/adminStore';
 import {
   Plus,
   Users,
@@ -38,26 +39,9 @@ interface SystemAlert {
 
 const QuickActionsPanel: React.FC = () => {
   const navigate = useNavigate();
-  const [systemAlerts] = useState<SystemAlert[]>([
-    {
-      id: '1',
-      type: 'warning',
-      message: 'Backup programado en 2 horas',
-      timestamp: '2024-01-15 14:30'
-    },
-    {
-      id: '2',
-      type: 'info',
-      message: '15 nuevos usuarios registrados hoy',
-      timestamp: '2024-01-15 13:45'
-    },
-    {
-      id: '3',
-      type: 'error',
-      message: '3 pagos fallidos requieren atención',
-      timestamp: '2024-01-15 12:20'
-    }
-  ]);
+  const { useAuthenticatedFetch } = useAdminStore();
+  const [loadingStats, setLoadingStats] = useState<boolean>(true);
+  const [systemAlerts, setSystemAlerts] = useState<SystemAlert[]>([]);
 
   const quickActions: QuickAction[] = [
     {
@@ -111,32 +95,83 @@ const QuickActionsPanel: React.FC = () => {
     }
   ];
 
-  const systemStats = [
-    {
-      label: 'Usuarios Activos',
-      value: '1,234',
-      change: '+12%',
-      positive: true
-    },
-    {
-      label: 'Transacciones Hoy',
-      value: '89',
-      change: '+5%',
-      positive: true
-    },
-    {
-      label: 'Tiempo de Respuesta',
-      value: '245ms',
-      change: '-8%',
-      positive: true
-    },
-    {
-      label: 'Uso de CPU',
-      value: '67%',
-      change: '+3%',
-      positive: false
+  const [systemStats, setSystemStats] = useState<
+    { label: string; value: string; change?: string; positive?: boolean }[]
+  >([]);
+
+  const formatNumber = (n: number) => new Intl.NumberFormat('es-CO').format(n);
+  const formatCurrency = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(n);
+
+  const loadData = async () => {
+    try {
+      setLoadingStats(true);
+      const [metricsRes, healthRes, activityRes] = await Promise.all([
+        useAuthenticatedFetch('/admin/dashboard/metrics'),
+        useAuthenticatedFetch('/admin/dashboard/health'),
+        useAuthenticatedFetch('/admin/dashboard/activity')
+      ]);
+
+      const metricsJson = await metricsRes.json();
+      const healthJson = await healthRes.json();
+      const activityJson = await activityRes.json();
+
+      const metrics = metricsJson?.data || {};
+      const health = healthJson?.data || {};
+
+      setSystemStats([
+        {
+          label: 'Usuarios Activos',
+          value: metrics?.users ? formatNumber(metrics.users.active || 0) : '0',
+          positive: true,
+          change: metrics?.users ? `${formatNumber(metrics.users.growth_rate || 0)}` : undefined
+        },
+        {
+          label: 'Pagos Completados',
+          value: metrics?.payments ? formatNumber(metrics.payments.successful || 0) : '0',
+          positive: true,
+          change: metrics?.payments ? `${formatNumber(metrics.payments.total || 0)} totales` : undefined
+        },
+        {
+          label: 'Ingresos del Mes',
+          value: metrics?.payments ? formatCurrency(metrics.payments.revenue_this_month || 0) : '$0',
+          positive: true,
+          change: metrics?.payments ? `${formatNumber(metrics.payments.revenue_growth || 0)} crecimiento` : undefined
+        },
+        {
+          label: 'Eventos de Auditoría Hoy',
+          value: metrics?.system ? formatNumber(metrics.system.audit_logs_today || 0) : '0',
+          positive: true
+        }
+      ]);
+
+      const recent = Array.isArray(activityJson?.data) ? activityJson.data.slice(0, 3) : [];
+      setSystemAlerts(
+        recent.map((item: any, idx: number) => ({
+          id: String(item.id ?? idx),
+          type: 'info',
+          message: `${item.action ?? 'actividad'}: ${item.description ?? ''}`.trim(),
+          timestamp: new Date(item.created_at ?? Date.now()).toLocaleString('es-CO')
+        }))
+      );
+    } catch (e) {
+      // En caso de error, mantener valores vacíos y mostrar un alerta genérica
+      setSystemAlerts([{
+        id: 'fallback',
+        type: 'warning',
+        message: 'No se pudieron cargar las métricas. Verifique la conexión del backend.',
+        timestamp: new Date().toLocaleString('es-CO')
+      }]);
+    } finally {
+      setLoadingStats(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    loadData();
+    // Recarga periódica cada 60s
+    const id = setInterval(loadData, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const getAlertIcon = (type: string) => {
     switch (type) {
@@ -208,24 +243,32 @@ const QuickActionsPanel: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Estado del Sistema</h3>
-            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors" onClick={loadData} aria-label="Actualizar métricas">
               <RefreshCw className="h-4 w-4" />
             </button>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            {systemStats.map((stat, index) => (
-              <div key={index} className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-                <div className="text-sm text-gray-600">{stat.label}</div>
-                <div className={`text-xs font-medium ${
-                  stat.positive ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {stat.change}
+          {loadingStats ? (
+            <div className="grid grid-cols-2 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="p-3 bg-gray-50 rounded-lg animate-pulse h-20" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {systemStats.map((stat, index) => (
+                <div key={index} className="text-center p-3 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
+                  <div className="text-sm text-gray-600">{stat.label}</div>
+                  {stat.change && (
+                    <div className={`text-xs font-medium ${stat.positive ? 'text-green-600' : 'text-red-600'}`}>
+                      {stat.change}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Alertas del Sistema */}

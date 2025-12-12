@@ -341,6 +341,38 @@ export class AIService {
   // Obtener notificaciones
   async getNotifications(agentType?: AIAgentType): Promise<AINotification[]> {
     try {
+      // Intentar obtener desde backend primero
+      const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
+      const endpoint = `${baseUrl}/api/ai/notifications`;
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || localStorage.getItem('authToken')) : null;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(endpoint, { headers });
+      if (res.ok) {
+        const payload = await res.json();
+        const data = Array.isArray(payload?.data) ? payload.data : [];
+
+        // Normalizar a AINotification
+        const normalized: AINotification[] = data.map((n: any) => ({
+          id: String(n.id ?? crypto.randomUUID()),
+          agentType: (n.agentType ?? 'predictive') as AIAgentType,
+          type: (n.type ?? 'system_update') as AINotification['type'],
+          title: n.title ?? 'Notificación',
+          message: n.message ?? '',
+          priority: (n.priority ?? 'medium') as AINotification['priority'],
+          data: n.metadata ?? n.data ?? {},
+          read: Boolean(n.isRead ?? n.read ?? false),
+          timestamp: (n.createdAt instanceof Date ? n.createdAt.toISOString() : (n.createdAt ?? new Date().toISOString())),
+          expiresAt: n.expiresAt ? (n.expiresAt instanceof Date ? n.expiresAt.toISOString() : n.expiresAt) : undefined
+        }));
+
+        // Si se especifica agente, filtrar
+        return agentType ? normalized.filter(n => n.agentType === agentType) : normalized;
+      }
+
+      // Fallback a IndexedDB si falla backend
       if (agentType) {
         return await offlineDB.getAINotificationsByAgent(agentType);
       }

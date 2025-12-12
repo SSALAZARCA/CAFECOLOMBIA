@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import Layout from '@/components/Layout';
-import { offlineDB } from '@/utils/offlineDB';
+import { offlineDB, ensureOfflineDBReady } from '@/utils/offlineDB';
 import MicrolotDetailModal from '@/components/MicrolotDetailModal';
 import CreateMicrolotModal from '@/components/CreateMicrolotModal';
 import ProcessingFlowModal from '@/components/ProcessingFlowModal';
@@ -132,15 +132,31 @@ export default function Traceability() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedMicrolot, setSelectedMicrolot] = useState<Microlot | null>(null);
+  const [selectedMicrolot, setSelectedMicrolot] = useState<any | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showProcessingModal, setShowProcessingModal] = useState(false);
   const [selectedMicrolotForProcessing, setSelectedMicrolotForProcessing] = useState<Microlot | null>(null);
 
   useEffect(() => {
-    fetchMicrolots();
-    fetchStats();
+    (async () => {
+      try {
+        setLoading(true);
+        await ensureOfflineDBReady();
+      } catch (err) {
+        console.warn('[Traceability] DB no disponible, usando fallback:', err);
+      } finally {
+        try {
+          await fetchMicrolots();
+          await fetchStats();
+        } catch (innerErr) {
+          console.error('Error cargando microlotes o stats:', innerErr);
+          toast.error('Error al cargar datos de trazabilidad');
+        } finally {
+          setLoading(false);
+        }
+      }
+    })();
   }, []);
 
   const fetchMicrolots = async () => {
@@ -153,10 +169,9 @@ export default function Traceability() {
 
       // Generar microlotes basados en las cosechas
       const microlotesGenerados: Microlot[] = harvestsFromDB.map((harvest, index) => {
-        const lot = lotsFromDB.find(l => l.id === harvest.lotId);
-        
-        // Determinar estado basado en la fecha de cosecha
-        const harvestDate = new Date(harvest.harvestDate);
+        const lot = lotsFromDB.find(l => l.id?.toString() === harvest.lotId);
+        const hDateStr = harvest.harvestDate || harvest.date;
+        const harvestDate = hDateStr ? new Date(hDateStr) : new Date();
         const daysSinceHarvest = Math.floor((Date.now() - harvestDate.getTime()) / (1000 * 60 * 60 * 24));
         
         let status: 'HARVEST' | 'PROCESSING' | 'DRYING' | 'STORAGE' | 'EXPORT_READY' | 'EXPORTED' = 'HARVEST';
@@ -168,12 +183,12 @@ export default function Traceability() {
 
         return {
           id: harvest.id!.toString(),
-          code: `ML-${harvest.id}-${harvest.harvestDate.slice(0, 4)}`,
+          code: `ML-${harvest.id}-${(hDateStr || new Date().toISOString()).slice(0, 4)}`,
           quantityKg: harvest.quantity,
-          qualityGrade: harvest.qualityGrade || 'A',
+          qualityGrade: (harvest as any).qualityGrade || (harvest as any).quality || 'A',
           status,
           qrCode: `QR-${harvest.id}`,
-          createdAt: harvest.harvestDate,
+          createdAt: hDateStr || new Date().toISOString(),
           lot: {
             id: lot?.id?.toString() || '1',
             name: lot?.name || 'Lote Principal',
@@ -186,8 +201,8 @@ export default function Traceability() {
           },
           harvest: {
             id: harvest.id!.toString(),
-            harvestDate: harvest.harvestDate,
-            qualityGrade: harvest.qualityGrade || 'A'
+            harvestDate: hDateStr || new Date().toISOString(),
+            qualityGrade: (harvest as any).qualityGrade || (harvest as any).quality || 'A'
           },
           qualityControls: [
             {
@@ -195,14 +210,14 @@ export default function Traceability() {
               testType: 'SENSORIAL',
               scaScore: 85 + Math.random() * 10,
               passed: true,
-              testDate: harvest.harvestDate
+              testDate: hDateStr || new Date().toISOString()
             }
           ],
           traceabilityEvents: [
             {
               id: `event-${harvest.id}`,
               eventType: 'COSECHA',
-              eventDate: harvest.harvestDate,
+              eventDate: hDateStr || new Date().toISOString(),
               description: `Cosecha realizada - ${harvest.quantity}kg`
             }
           ],
@@ -219,7 +234,29 @@ export default function Traceability() {
       setMicrolots(microlotesGenerados);
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Error al cargar microlotes');
+      if (import.meta.env.DEV) {
+        // Fallback de desarrollo para visualizar UI
+        const fallbackMicrolots: Microlot[] = [
+          {
+            id: '1',
+            code: 'ML-001-2024',
+            quantityKg: 500,
+            qualityGrade: 'A',
+            status: 'PROCESSING',
+            qrCode: 'QR-001',
+            createdAt: new Date().toISOString(),
+            lot: { id: '1', name: 'Lote Principal', variety: 'Caturra', farm: { id: '1', name: 'Finca El Paraíso', location: 'Huila, Colombia' } },
+            harvest: { id: '1', harvestDate: new Date().toISOString(), qualityGrade: 'A' },
+            qualityControls: [],
+            traceabilityEvents: [],
+            certificationRecords: []
+          }
+        ];
+        setMicrolots(fallbackMicrolots);
+        toast.info('Modo offline: mostrando microlotes de ejemplo');
+      } else {
+        toast.error('Error al cargar microlotes');
+      }
     }
   };
 
@@ -251,32 +288,49 @@ export default function Traceability() {
           { certificationType: 'ORGANICO', _count: { certificationType: Math.floor(totalMicrolots * 0.6) } },
           { certificationType: 'RAINFOREST', _count: { certificationType: Math.floor(totalMicrolots * 0.4) } }
         ],
-        recentEvents: harvestsFromDB.slice(0, 5).map(harvest => ({
-          id: harvest.id!.toString(),
-          eventType: 'COSECHA',
-          eventDate: harvest.harvestDate,
-          description: `Cosecha realizada - ${harvest.quantity}kg`,
-          microlot: {
-            code: `ML-${harvest.id}`,
-            lot: {
-              name: 'Lote Principal',
-              farm: {
-                name: 'Finca El Paraíso'
+        recentEvents: harvestsFromDB.slice(0, 5).map(harvest => {
+          const hDateStr = (harvest as any).harvestDate || (harvest as any).date || new Date().toISOString();
+          return ({
+            id: harvest.id!.toString(),
+            eventType: 'COSECHA',
+            eventDate: hDateStr,
+            description: `Cosecha realizada - ${harvest.quantity}kg`,
+            microlot: {
+              code: `ML-${harvest.id}`,
+              lot: {
+                name: 'Lote Principal',
+                farm: {
+                  name: 'Finca El Paraíso'
+                }
               }
+            },
+            responsible: {
+              firstName: 'Juan',
+              lastName: 'Pérez'
             }
-          },
-          responsible: {
-            firstName: 'Juan',
-            lastName: 'Pérez'
-          }
-        }))
+          });
+        })
       };
 
       setStats(stats);
     } catch (error) {
       console.error('Error:', error);
-    } finally {
-      setLoading(false);
+      if (import.meta.env.DEV) {
+        const fallbackStats: TraceabilityStats = {
+          totalMicrolots: 1,
+          statusDistribution: [
+            { status: 'PROCESSING', _count: { status: 1 } }
+          ],
+          qualityMetrics: [
+            { passed: true, _count: { passed: 1 }, _avg: { scaScore: 86.5 } }
+          ],
+          certificationDistribution: [
+            { certificationType: 'ORGANICO', _count: { certificationType: 1 } }
+          ],
+          recentEvents: []
+        };
+        setStats(fallbackStats);
+      }
     }
   };
 
@@ -510,7 +564,7 @@ export default function Traceability() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setSelectedMicrolot(microlot);
+                      setSelectedMicrolot(buildDetailedMicrolot(microlot));
                       setShowDetailModal(true);
                     }}
                     className="flex-1"
@@ -525,71 +579,101 @@ export default function Traceability() {
                     className="flex-1"
                   >
                     <ArrowRight className="h-4 w-4 mr-1" />
-                    Procesar
+                    Flujo de Proceso
                   </Button>
                 </div>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => window.open(`/public/microlot/${microlot.qrCode}`, '_blank')}
-                  className="w-full"
-                >
-                  <QrCode className="h-4 w-4 mr-2" />
-                  Ver QR Público
-                </Button>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {filteredMicrolots.length === 0 && !loading && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay microlotes</h3>
-              <p className="text-gray-600 mb-4">
-                {searchTerm || statusFilter !== 'all' 
-                  ? 'No se encontraron microlotes con los filtros aplicados'
-                  : 'Comienza creando tu primer microlote'
-                }
-              </p>
-              {!searchTerm && statusFilter === 'all' && (
-                <Button onClick={() => setShowCreateModal(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Crear Primer Microlote
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+        {/* Modales */}
+        {showDetailModal && selectedMicrolot && (
+          <MicrolotDetailModal
+            microlot={selectedMicrolot}
+            isOpen={showDetailModal}
+            onClose={() => setShowDetailModal(false)}
+          />
         )}
 
-        {/* Modals */}
-        <MicrolotDetailModal
-          microlot={selectedMicrolot}
-          isOpen={showDetailModal}
-          onClose={() => {
-            setShowDetailModal(false);
-            setSelectedMicrolot(null);
-          }}
-        />
+        {showCreateModal && (
+          <CreateMicrolotModal
+            isOpen={showCreateModal}
+            onClose={() => setShowCreateModal(false)}
+            onSuccess={handleCreateSuccess}
+          />
+        )}
 
-        <CreateMicrolotModal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={handleCreateSuccess}
-        />
-
-        <ProcessingFlowModal
-          isOpen={showProcessingModal}
-          onClose={() => {
-            setShowProcessingModal(false);
-            setSelectedMicrolotForProcessing(null);
-          }}
-          microlot={selectedMicrolotForProcessing}
-          onSuccess={handleProcessingSuccess}
-        />
+        {showProcessingModal && selectedMicrolotForProcessing && (
+          <ProcessingFlowModal
+            microlot={selectedMicrolotForProcessing}
+            isOpen={showProcessingModal}
+            onClose={() => setShowProcessingModal(false)}
+            onSuccess={handleProcessingSuccess}
+          />
+        )}
       </div>
     </Layout>
   );
 }
+
+const buildDetailedMicrolot = (m: Microlot) => {
+  return {
+    id: m.id,
+    code: m.code,
+    quantityKg: m.quantityKg,
+    qualityGrade: m.qualityGrade || 'A',
+    status: m.status === 'HARVEST' ? 'COSECHADO'
+      : m.status === 'PROCESSING' ? 'EN_BENEFICIO'
+      : m.status === 'DRYING' ? 'SECANDO'
+      : m.status === 'STORAGE' ? 'ALMACENADO'
+      : m.status === 'EXPORT_READY' ? 'LISTO_EXPORTACION'
+      : 'EXPORTADO',
+    processDate: m.createdAt,
+    lot: {
+      name: m.lot.name,
+      variety: m.lot.variety,
+      area: 1,
+      farm: {
+        name: m.lot.farm.name,
+        location: m.lot.farm.location,
+        altitude: 1650,
+        owner: {
+          firstName: 'Juan',
+          lastName: 'Pérez'
+        }
+      }
+    },
+    harvest: {
+      harvestDate: m.harvest?.harvestDate || m.createdAt,
+      qualityGrade: m.harvest?.qualityGrade || m.qualityGrade || 'A',
+      harvestedByUser: { firstName: 'Juan', lastName: 'Pérez' }
+    },
+    processing: [
+      {
+        id: `proc-${m.id}`,
+        processType: 'WASHED',
+        startDate: m.createdAt,
+        endDate: m.createdAt,
+        qualityScore: 86,
+        processedByUser: { firstName: 'Ana', lastName: 'García' }
+      }
+    ],
+    qualityControls: m.qualityControls.map(qc => ({
+      ...qc,
+      tester: { firstName: 'Catador', lastName: 'Principal' }
+    })),
+    traceabilityEvents: m.traceabilityEvents.map(ev => ({
+      ...ev,
+      location: m.lot.farm.location,
+      responsible: { firstName: 'Juan', lastName: 'Pérez' }
+    })),
+    certificationRecords: m.certificationRecords.map(cert => ({
+      ...cert,
+      certificationBody: 'ICONTEC',
+      certificateNumber: `CERT-${m.id}`,
+      issueDate: m.createdAt,
+      expiryDate: m.createdAt
+    }))
+  };
+};

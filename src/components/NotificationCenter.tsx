@@ -256,6 +256,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     return `${days}d`;
   };
 
+  // Render deshabilitado: las notificaciones solo se muestran en la campanita del Header
+  return null;
+
   return (
     <div className={`fixed z-50 ${getPositionClasses()} ${className}`}>
       {/* Notification Panel Container */}

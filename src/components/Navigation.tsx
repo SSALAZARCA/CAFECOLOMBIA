@@ -1,7 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
+<<<<<<< HEAD
 import { Home, MapPin, Package, Bug, BarChart3, Settings, Brain, Target, TrendingUp, Users } from 'lucide-react';
 
 const navigationItems = [
+=======
+import { Home, MapPin, Package, Bug, BarChart3, Settings, Brain, Target, TrendingUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
+const baseItems = [
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Gestión de Finca', href: '/finca', icon: MapPin },
   { name: 'Control de Insumos', href: '/insumos', icon: Package },
@@ -21,6 +28,45 @@ interface NavigationProps {
 
 export default function Navigation({ isOpen, onClose }: NavigationProps) {
   const location = useLocation();
+  const normalizeRole = (r?: string) => {
+    if (!r) return '';
+    return String(r).toLowerCase().trim().replace(/[\s-]+/g, '_');
+  };
+
+  const isGrowerRole = (role: string) => {
+    const growerRoles = ['coffee_grower','coffee-grower','caficultor','cafetero','farmer','usuario','user','trabajador'];
+    return growerRoles.includes(role);
+  };
+
+  const initialItems = (() => {
+    try {
+      const raw = localStorage.getItem('user');
+      if (raw) {
+        const u = JSON.parse(raw);
+        const role = normalizeRole(u?.tipo_usuario || u?.role);
+        if (isGrowerRole(role)) return baseItems.filter(i => i.name !== 'Dashboard');
+      }
+    } catch {}
+    return baseItems;
+  })();
+
+  const [navigationItems, setNavigationItems] = useState(initialItems);
+
+  useEffect(() => {
+    const userRaw = localStorage.getItem('user');
+    if (userRaw) {
+      try {
+        const user = JSON.parse(userRaw);
+        const rawRole = user?.tipo_usuario || user?.role;
+        const role = normalizeRole(rawRole);
+        if (isGrowerRole(role)) {
+          setNavigationItems(baseItems.filter(i => i.name !== 'Dashboard'));
+        } else {
+          setNavigationItems(baseItems);
+        }
+      } catch {}
+    }
+  }, []);
 
   return (
     <>

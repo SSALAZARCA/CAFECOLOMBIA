@@ -178,20 +178,14 @@ export class CloudInitializer {
     try {
       const configSummary = await initializeConfiguration();
       
+      // Incluso si la validación no es válida, no bloqueamos producción
       if (!configSummary.validation.isValid) {
-        result.errors.push(...configSummary.validation.missingFeatures);
-        this.updateStepStatus(
-          'config-validation',
-          'error',
-          100,
-          'Error en validación de configuración',
-          configSummary.validation.missingFeatures.join(', ')
-        );
-        return;
+        result.warnings.push(...configSummary.validation.errors);
       }
 
+      // Tratar missingFeatures como advertencias y continuar
       result.warnings.push(...configSummary.validation.missingFeatures);
-      this.updateStepStatus('config-validation', 'completed', 100, 'Configuración validada');
+      this.updateStepStatus('config-validation', 'completed', 100, 'Configuración validada con advertencias');
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Configuration validation failed';

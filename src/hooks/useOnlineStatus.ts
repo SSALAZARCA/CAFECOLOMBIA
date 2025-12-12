@@ -46,9 +46,29 @@ export const useOnlineStatus = () => {
       return navigator.onLine ? 'good' : 'offline';
     }
 
+<<<<<<< HEAD
     // TEMPORALMENTE DESACTIVADO: En producción, usar solo navigator.onLine
     // para evitar el error net::ERR_ABORTED con /api/ping
     return navigator.onLine ? 'good' : 'offline';
+=======
+    // In production, try to ping the API (use lightweight ping endpoint)
+    try {
+      const start = Date.now();
+      const response = await fetch('/api/ping', { cache: 'no-store' });
+      const duration = Date.now() - start;
+
+      const fromFallback = response.headers.get('X-From-Fallback') === 'true';
+      if (response.ok && !fromFallback) {
+        return duration < 1000 ? 'good' : 'poor';
+      }
+      if (fromFallback) {
+        return 'offline';
+      }
+      return response.ok ? 'poor' : 'offline';
+    } catch (error) {
+      return 'offline';
+    }
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
   }, []);
 
   // Actualizar contador de elementos pendientes de sincronización

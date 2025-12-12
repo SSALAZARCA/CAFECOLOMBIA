@@ -1,6 +1,6 @@
 # 🐳 DOCKERFILE PARA CAFÉ COLOMBIA APP
-# Imagen base con Node.js 18 LTS
-FROM node:18-alpine AS base
+# Imagen base con Node.js 20 LTS
+FROM node:20-alpine AS base
 
 # Instalar dependencias del sistema
 RUN apk add --no-cache \

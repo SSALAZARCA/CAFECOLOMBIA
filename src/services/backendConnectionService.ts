@@ -31,6 +31,7 @@ class BackendConnectionService {
   private healthCheckInterval_ms = 30000; // 30 segundos
   private isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
 
+<<<<<<< HEAD
   // URLs de fallback para diferentes entornos
   private baseUrls = [
     // Construir base /api con robustez: si VITE_API_URL ya termina en /api, usar tal cual; si no, agregar /api
@@ -46,6 +47,12 @@ class BackendConnectionService {
 
   private currentBaseUrl = this.baseUrls[0];
   private healthEndpoint = '/health';
+=======
+  // Usar VITE_API_BASE_URL si está definido; en su defecto, rutas relativas para proxy de Vite
+  // En desarrollo usar rutas relativas para aprovechar el proxy de Vite
+  private baseUrl = ((import.meta.env.VITE_API_BASE_URL || '') && !this.isDevelopment) ? import.meta.env.VITE_API_BASE_URL : '';
+  private healthEndpoint = '/api/ping';
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
 
   constructor() {
     // En modo desarrollo, reducir la frecuencia de health checks
@@ -150,8 +157,22 @@ class BackendConnectionService {
     try {
       const result = await this.tryMultipleUrls();
 
+<<<<<<< HEAD
       if (result.success && result.response) {
         const healthData: BackendHealthResponse = await result.response.json();
+=======
+      // Elegir endpoint según configuración: si hay baseUrl, usarla; si no, ruta relativa para proxy
+      const healthUrl = this.baseUrl
+        ? `${this.baseUrl}${this.healthEndpoint}`
+        : this.healthEndpoint;
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      });
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
 
         this.connectionStatus = {
           isConnected: true,
@@ -198,8 +219,15 @@ class BackendConnectionService {
         return this.connectionStatus;
       }
     } catch (error: any) {
+<<<<<<< HEAD
       const errorMessage = this.getErrorMessage(error);
 
+=======
+      // Manejo específico para AbortError y fallos de red en desarrollo
+      const isAbort = error?.name === 'AbortError';
+      const errorMessage = isAbort ? 'Solicitud de salud abortada por timeout' : this.getErrorMessage(error);
+      
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
       this.connectionStatus = {
         isConnected: false,
         lastChecked: new Date(),
@@ -214,8 +242,13 @@ class BackendConnectionService {
         currentUrl: this.currentBaseUrl
       });
 
+<<<<<<< HEAD
       // Solo mostrar toast en producción y después de varios intentos
       if (!this.isDevelopment && this.connectionStatus.retryCount > 3 && this.connectionStatus.retryCount % 5 === 0) {
+=======
+      // Solo mostrar toast en producción o en el primer error en desarrollo
+      if (!this.isDevelopment && !isAbort && (this.connectionStatus.retryCount === 1 || this.connectionStatus.retryCount % 5 === 0)) {
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
         toast.error('Error de conexión al servidor', {
           description: `${errorMessage}. Probando URLs alternativas...`,
           duration: 5000
@@ -265,10 +298,14 @@ class BackendConnectionService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos
 
+<<<<<<< HEAD
       const fullUrl = `${this.currentBaseUrl}${endpoint}`;
       console.log(`🔧 Making request to: ${fullUrl}`);
 
       const response = await fetch(fullUrl, {
+=======
+      const response = await fetch(`${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`, {
+>>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
         ...options,
         signal: controller.signal,
         headers: {

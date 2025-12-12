@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bug, AlertTriangle, TrendingUp, MapPin, Calendar, Bell, Plus, BarChart3, Settings, Camera, Calculator, Leaf, Loader2, Eye, Brain, Activity } from 'lucide-react';
-import { offlineDB } from '@/utils/offlineDB';
+import { offlineDB, ensureOfflineDBReady } from '@/utils/offlineDB';
 import { toast } from 'sonner';
 import Layout from '../components/Layout';
 import PestMonitoringForm from '../components/PestMonitoringForm';
@@ -14,7 +14,6 @@ import SmartAlerts from '../components/SmartAlerts';
 import PhotoCapture from '../components/PhotoCapture';
 import { DiagnosticoPorFoto } from '../components/DiagnosticoPorFoto';
 import AlertasTempranasIA from '../components/AlertasTempranasIA';
-import RiskAssessmentDashboard from '../components/RiskAssessmentDashboard';
 
 interface PestStats {
   total: number;
@@ -41,6 +40,7 @@ interface PestAlert {
   createdAt: string;
 }
 
+
 const MIP: React.FC = () => {
   const [pestStats, setPestStats] = useState<PestStats | null>(null);
   const [pestAlerts, setPestAlerts] = useState<PestAlert[]>([]);
@@ -55,11 +55,19 @@ const MIP: React.FC = () => {
   const [showSmartAlerts, setShowSmartAlerts] = useState(false);
   const [showPhotoCapture, setShowPhotoCapture] = useState(false);
   const [editingMonitoring, setEditingMonitoring] = useState<any>(null);
-  const [selectedView, setSelectedView] = useState<'dashboard' | 'heatmap' | 'analytics' | 'thresholds' | 'coffee' | 'alerts' | 'photos' | 'diagnosis' | 'risk-dashboard'>('dashboard');
+  const [selectedView, setSelectedView] = useState<'dashboard' | 'heatmap' | 'analytics' | 'thresholds' | 'coffee' | 'alerts' | 'photos' | 'diagnosis' | 'risk-dashboard' | 'early-warning'>('dashboard');
   const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
 
   useEffect(() => {
-    fetchPestData();
+    (async () => {
+      try {
+        await ensureOfflineDBReady();
+      } catch (err) {
+        console.warn('[MIP] DB no disponible, usando fallback:', err);
+      } finally {
+        await fetchPestData();
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -105,14 +113,14 @@ const MIP: React.FC = () => {
       const alerts: PestAlert[] = pestMonitoringFromDB
         .filter(p => p.severity === 'HIGH' || p.severity === 'CRITICAL')
         .map(p => {
-          const lot = lotsFromDB.find(l => l.id === p.lotId);
+          const lot = lotsFromDB.find(l => l.id?.toString() === p.lotId);
           return {
             id: p.id!,
             lotName: lot?.name || `Lote ${p.lotId}`,
             pestType: p.pestType,
             severity: p.severity,
             message: `${getPestTypeText(p.pestType)} detectada con severidad ${p.severity.toLowerCase()}`,
-            createdAt: p.detectionDate
+            createdAt: p.observationDate || new Date().toISOString()
           };
         });
 
@@ -120,7 +128,29 @@ const MIP: React.FC = () => {
       setPestAlerts(alerts);
     } catch (error) {
       console.error('Error fetching pest data:', error);
-      toast.error('Error al cargar datos de monitoreo de plagas');
+      if (import.meta.env.DEV) {
+        // Fallback de desarrollo para visualizar UI
+        const fallbackStats: PestStats = {
+          total: 3,
+          bySeverity: { CRITICAL: 1, HIGH: 1, MEDIUM: 1, LOW: 0 },
+          byPestType: [
+            { pestType: 'ROYA', count: 1 },
+            { pestType: 'BROCA', count: 1 },
+            { pestType: 'COCHINILLA', count: 1 }
+          ],
+          totalAffectedArea: 2.5,
+          trend: 5
+        };
+        const fallbackAlerts: PestAlert[] = [
+          { id: 1, lotName: 'Lote Principal', pestType: 'ROYA', severity: 'CRITICAL', message: 'Roya detectada con severidad crítica', createdAt: new Date().toISOString() },
+          { id: 2, lotName: 'Lote 2', pestType: 'BROCA', severity: 'HIGH', message: 'Broca con alta incidencia', createdAt: new Date().toISOString() }
+        ];
+        setPestStats(fallbackStats);
+        setPestAlerts(fallbackAlerts);
+        toast.info('Modo offline: mostrando datos de ejemplo');
+      } else {
+        toast.error('Error al cargar datos de monitoreo de plagas');
+      }
     } finally {
       setLoading(false);
     }
@@ -134,8 +164,7 @@ const MIP: React.FC = () => {
         pestType: monitoringData.pestType,
         severity: monitoringData.severity,
         affectedArea: monitoringData.affectedArea,
-        detectionDate: monitoringData.detectionDate || new Date().toISOString(),
-        description: monitoringData.description,
+        observationDate: monitoringData.detectionDate || new Date().toISOString(),
         symptoms: monitoringData.symptoms,
         location: monitoringData.location,
         weatherConditions: monitoringData.weatherConditions,
@@ -385,7 +414,7 @@ const MIP: React.FC = () => {
                         : 0}%
                     </p>
                   </div>
-                  <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items_center justify-center">
                     <TrendingUp className="h-6 w-6 text-yellow-600" />
                   </div>
                 </div>
@@ -473,7 +502,7 @@ const MIP: React.FC = () => {
                     const percentage = pestStats?.total ? (count / pestStats.total) * 100 : 0;
                     
                     return (
-                      <div key={key} className="flex items-center justify-between">
+                      <div key={key} className="flex items-center justify_between">
                         <div className="flex items-center gap-3">
                           <div className={`w-3 h-3 rounded-full ${color}`} />
                           <span className="text-sm font-medium text-gray-700">{label}</span>
@@ -503,7 +532,7 @@ const MIP: React.FC = () => {
                     const percentage = pestStats?.total ? (pest.count / pestStats.total) * 100 : 0;
                     
                     return (
-                      <div key={pest.pestType} className="flex items-center justify-between">
+                      <div key={pest.pestType} className="flex items-center justify_between">
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-medium text-gray-500 w-4">#{index + 1}</span>
                           <span className="text-sm font-medium text-gray-700">
@@ -609,7 +638,7 @@ const MIP: React.FC = () => {
         )}
 
         {selectedView === 'alerts' && (
-          <SmartAlerts />
+          <SmartAlerts farmId="farm-001" />
         )}
 
         {selectedView === 'photos' && (
@@ -625,12 +654,15 @@ const MIP: React.FC = () => {
         )}
 
         {selectedView === 'risk-dashboard' && (
-          <RiskAssessmentDashboard />
+          <div className="p-6">
+            {/* Dashboard de riesgos eliminado para caficultores */}
+          </div>
         )}
 
         {/* Modales */}
         {showMonitoringForm && (
           <PestMonitoringForm
+            isOpen={showMonitoringForm}
             onSubmit={editingMonitoring ? 
               (data) => handleUpdateMonitoring(editingMonitoring.id, data) : 
               handleCreateMonitoring
@@ -639,12 +671,13 @@ const MIP: React.FC = () => {
               setShowMonitoringForm(false);
               setEditingMonitoring(null);
             }}
-            initialData={editingMonitoring}
+            editData={editingMonitoring}
           />
         )}
 
         {showAlertsModal && (
           <PestAlerts
+            isOpen={showAlertsModal}
             onClose={() => setShowAlertsModal(false)}
           />
         )}

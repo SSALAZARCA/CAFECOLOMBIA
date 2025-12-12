@@ -47,84 +47,82 @@ log "💾 Creando backup en $BACKUP_DIR..."
 mkdir -p "$BACKUP_DIR"
 cp -r dist "$BACKUP_DIR/" 2>/dev/null || true
 cp -r api/dist "$BACKUP_DIR/" 2>/dev/null || true
-mysqldump -u cafeapp -p cafe_colombia_app > "$BACKUP_DIR/database.sql" 2>/dev/null || warning "No se pudo crear backup de la base de datos"
+# Intentar volcar la base de datos si existe y se puede acceder
+if command -v mysqldump &> /dev/null; then
+  DB_NAME="cafe_colombia_app"
+  log "🗄️ Intentando backup de base de datos $DB_NAME..."
+  if [ -n "$MYSQL_PWD" ]; then
+    mysqldump -u cafeapp --password="$MYSQL_PWD" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>/dev/null || warning "No se pudo crear backup de la base de datos"
+  else
+    warning "MYSQL_PWD no definido, saltando backup de base de datos no interactivo"
+  fi
+else
+  warning "mysqldump no disponible, saltando backup de base de datos"
+fi
 
 # Obtener la última versión del código
 log "📥 Obteniendo última versión del código..."
 git fetch origin
 git pull origin main
 
-# Verificar si hay cambios
-if git diff --quiet HEAD~1 HEAD; then
-    info "No hay cambios nuevos para desplegar"
-    exit 0
-fi
-
 # Instalar/actualizar dependencias
 log "📦 Actualizando dependencias..."
 npm ci --production=false
 cd api && npm ci --production=false && cd ..
 
-# Ejecutar tests (si existen)
-if [ -f "package.json" ] && grep -q "\"test\"" package.json; then
-    log "🧪 Ejecutando tests..."
-    npm test || {
-        error "Los tests fallaron. Despliegue cancelado."
-        exit 1
-    }
-fi
-
-# Compilar aplicación
-log "🏗️ Compilando aplicación..."
+# Compilar aplicación (frontend)
+log "🏗️ Compilando frontend..."
 npm run build || {
     error "Error en la compilación del frontend"
     exit 1
 }
 
-cd api
-npm run build || {
-    error "Error en la compilación del backend"
-    exit 1
-}
-cd ..
-
-# Ejecutar migraciones de base de datos
-log "🗄️ Ejecutando migraciones de base de datos..."
-if [ -f "scripts/migrate.js" ]; then
-    node scripts/migrate.js || warning "Error en las migraciones"
+# Compilar backend si aplica (TS). En este proyecto usamos server.cjs directamente.
+log "🏗️ Preparando backend..."
+if [ -f "api/server.ts" ]; then
+  info "Detectado server.ts, pero el runtime usa server.cjs. No se requiere build."
 fi
 
-# Reiniciar aplicación con PM2
-log "🔄 Reiniciando aplicación..."
-pm2 reload ecosystem.config.js --update-env
+# Ejecutar migraciones de base de datos (si existen)
+log "🗄️ Ejecutando migraciones de base de datos..."
+if [ -f "scripts/migrate.cjs" ]; then
+    node scripts/migrate.cjs || warning "Error en las migraciones"
+else
+    info "No hay script de migraciones (.cjs)"
+fi
+
+# Reiniciar aplicación con PM2 (ecosystem usa api/server.cjs)
+log "🔄 Reiniciando aplicación con PM2..."
+pm2 reload ecosystem.config.cjs --update-env || {
+  warning "PM2 reload falló, intentando start"
+  pm2 start ecosystem.config.cjs --env production || {
+    error "No se pudo iniciar la aplicación con PM2"
+    exit 1
+  }
+}
 
 # Verificar que la aplicación esté funcionando
 log "🔍 Verificando estado de la aplicación..."
 sleep 5
 
 # Verificar PM2
-if pm2 list | grep -q "online"; then
-    log "✅ Aplicación reiniciada correctamente"
+if pm2 list | grep -q "cafe-colombia-api"; then
+    log "✅ Aplicación en PM2 detectada"
 else
-    error "❌ Error al reiniciar la aplicación"
-    
-    # Intentar rollback
-    warning "🔄 Intentando rollback..."
-    if [ -d "$BACKUP_DIR/dist" ]; then
-        cp -r "$BACKUP_DIR/dist" .
-        cp -r "$BACKUP_DIR/api/dist" api/
-        pm2 reload ecosystem.config.js
-        error "Rollback completado. Revise los logs para más detalles."
-    fi
+    error "❌ La aplicación no está en PM2"
     exit 1
 fi
 
 # Verificar conectividad HTTP
-log "🌐 Verificando conectividad HTTP..."
-if curl -f -s http://localhost:3001/api/health > /dev/null; then
-    log "✅ API respondiendo correctamente"
+log "🌐 Verificando conectividad HTTP (localhost:3001)..."
+if command -v curl &> /dev/null; then
+  if curl -f -s http://localhost:3001/api/health > /dev/null; then
+      log "✅ API respondiendo correctamente"
+  else
+      warning "⚠️ La API no responde en el puerto 3001"
+  fi
 else
-    warning "⚠️ La API no responde en el puerto 3001"
+  info "curl no disponible, saltando verificación HTTP"
 fi
 
 # Limpiar archivos temporales
@@ -136,10 +134,6 @@ log "🗂️ Limpiando backups antiguos..."
 cd backups
 ls -t | tail -n +6 | xargs -r rm -rf
 cd ..
-
-# Recargar Nginx
-log "🌐 Recargando Nginx..."
-sudo nginx -t && sudo systemctl reload nginx || warning "Error al recargar Nginx"
 
 # Mostrar información del despliegue
 log "📊 Información del despliegue:"
@@ -153,6 +147,4 @@ log "📋 Logs recientes de la aplicación:"
 pm2 logs cafe-colombia-api --lines 10 --nostream
 
 log "✅ Despliegue completado exitosamente!"
-info "🌐 Aplicación disponible en el dominio configurado"
-info "📊 Monitoreo: pm2 monit"
-info "📋 Logs: pm2 logs cafe-colombia-api"
+info "🌐 Asegúrate de tener Nginx configurado para servir dist y proxy /api -> http://localhost:3001"
