@@ -71,6 +71,9 @@ COPY --from=builder --chown=cafeapp:nodejs /app/api/dist ./api
 COPY --from=deps-prod --chown=cafeapp:nodejs /app/node_modules ./node_modules
 COPY --from=deps-prod --chown=cafeapp:nodejs /app/api/node_modules ./api/node_modules
 
+# Copiar cliente de Prisma generado (IMPORTANTE)
+COPY --from=builder --chown=cafeapp:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+
 # Copiar package.json y ecosystem
 COPY --chown=cafeapp:nodejs package.json ./
 COPY --chown=cafeapp:nodejs ecosystem.config.cjs ./
