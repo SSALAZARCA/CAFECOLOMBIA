@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const { URL } = require('url');
+const crypto = require('crypto');
 
 // Load env vars
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -69,11 +70,12 @@ async function seedAdmins() {
                 if (admin.email === 'asalaza6@gmail.com') plainPassword = 'asc1982';
 
                 const hashedPassword = await bcrypt.hash(plainPassword, 10);
+                const userId = crypto.randomUUID();
 
                 await connection.execute(
-                    `INSERT INTO users (firstName, lastName, email, password, role, isActive, createdAt, updatedAt) 
-                     VALUES (?, ?, ?, ?, ?, 1, NOW(), NOW())`,
-                    [admin.firstName, admin.lastName, admin.email, hashedPassword, 'admin']
+                    `INSERT INTO users (id, firstName, lastName, email, password, role, isActive, createdAt, updatedAt) 
+                     VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
+                    [userId, admin.firstName, admin.lastName, admin.email, hashedPassword, 'admin']
                 );
                 console.log(`✅ Created user: ${admin.email}`);
             } else {
