@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { dbConfig, pool } = require('../../config/database.cjs');
+const { dbConfig, pool } = require('../config/database.cjs');
 const mysql = require('mysql2/promise');
-const { errorHandler, asyncErrorHandler, validateRequest } = require('../../lib/errorHandler.cjs');
+const { errorHandler, asyncErrorHandler, validateRequest } = require('../lib/errorHandler.cjs');
 
 // GET /api/market-prices - Get all prices (filtered by date/limit if needed)
 router.get('/', asyncErrorHandler(async (req, res) => {
