@@ -46,7 +46,9 @@ const parsedOrigins = process.env.CORS_ORIGIN
     'http://localhost:4174',
     'http://localhost:3001',
     'http://127.0.0.1:3001',
-    'http://127.0.0.1:5173'
+    'http://127.0.0.1:5173',
+    'https://cafecolombia.site',
+    'https://www.cafecolombia.site'
   ];
 
 // Middlewares

@@ -66,7 +66,8 @@ async function seedAdmins() {
                 // asalaza6@gmail.com -> asc1982
 
                 let plainPassword = '';
-                if (admin.email === 'ssalazarca84@gmail.com') plainPassword = '841209';
+                let plainPassword = '';
+                if (admin.email === 'ssalazarca84@gmail.com') plainPassword = 'ssc841209';
                 if (admin.email === 'asalaza6@gmail.com') plainPassword = 'asc1982';
 
                 const hashedPassword = await bcrypt.hash(plainPassword, 10);
