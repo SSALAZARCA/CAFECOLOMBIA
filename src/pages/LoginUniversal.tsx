@@ -61,7 +61,16 @@ const LoginUniversal: React.FC = () => {
     for (const attempt of attempts) {
       try {
         // Construir URL base correcta
-        const baseUrl = import.meta.env.VITE_API_URL || '/api';
+        let baseUrl = import.meta.env.VITE_API_URL || '';
+        // Si es una URL completa (http...) y no termina en /api, agregarlo
+        if (baseUrl.startsWith('http') && !baseUrl.endsWith('/api')) {
+          baseUrl = baseUrl.replace(/\/$/, '') + '/api';
+        }
+        // Si está vacía o es relativa, asegurarse de usar /api
+        if (!baseUrl || (!baseUrl.startsWith('http') && !baseUrl.includes('/api'))) {
+          baseUrl = '/api';
+        }
+
         const url = `${baseUrl.replace(/\/$/, '')}/auth/login`;
 
         console.log('Intento de login general:', { url, email: attempt.body.email });
