@@ -61,7 +61,8 @@ COPY --from=deps /app/api/node_modules ./api/node_modules
 # Copiar código fuente
 COPY . .
 
-# Ejecutar build simplificado (sin TypeScript)
+# Ejecutar prisma generate y build
+RUN npx prisma generate
 RUN npm run build
 
 # ================================
@@ -78,11 +79,15 @@ ENV HOST=0.0.0.0
 RUN mkdir -p /app/uploads /app/logs /app/backups
 RUN chown -R cafeapp:nodejs /app
 
-# Copiar archivos necesarios (no copiar api/.env en producción)
+# Copiar archivos necesarios para Prisma (schema es requerido por el engine en runtime si no se usa binaryTargets bundleados, pero client se copia en node_modules)
+COPY --from=builder --chown=cafeapp:nodejs /app/prisma ./prisma
+
+# Copiar Frontend (dist)
 COPY --from=builder --chown=cafeapp:nodejs /app/dist ./dist
-COPY --from=builder --chown=cafeapp:nodejs /app/api/dist ./api/dist
-COPY --from=builder --chown=cafeapp:nodejs /app/api/*.cjs ./api/
-COPY --from=builder --chown=cafeapp:nodejs /app/api/routes/*.cjs ./api/routes/
+
+# Copiar Backend (api/dist -> api)
+# Esto asegura que controllers, routes, lib y server.cjs estén en /app/api
+COPY --from=builder --chown=cafeapp:nodejs /app/api/dist ./api
 COPY --from=deps-prod --chown=cafeapp:nodejs /app/node_modules ./node_modules
 COPY --from=deps-prod --chown=cafeapp:nodejs /app/api/node_modules ./api/node_modules
 

@@ -2,13 +2,13 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  X, 
-  MapPin, 
-  Calendar, 
-  Package, 
-  Award, 
-  CheckCircle, 
+import {
+  X,
+  MapPin,
+  Calendar,
+  Package,
+  Award,
+  CheckCircle,
   AlertTriangle,
   Download,
   QrCode,
@@ -86,6 +86,7 @@ interface Microlot {
       firstName: string;
       lastName: string;
     };
+    data?: any;
   }>;
   certificationRecords: Array<{
     id: string;
@@ -241,7 +242,9 @@ export default function MicrolotDetailModal({ microlot, isOpen, onClose }: Micro
               <div className="flex justify-between">
                 <span className="text-gray-600">Cosechado por:</span>
                 <span className="font-medium">
-                  {microlot.harvest.harvestedByUser.firstName} {microlot.harvest.harvestedByUser.lastName}
+                  {microlot.harvest?.harvestedByUser
+                    ? `${microlot.harvest.harvestedByUser.firstName} ${microlot.harvest.harvestedByUser.lastName}`
+                    : 'Usuario Sistema'}
                 </span>
               </div>
             </div>
@@ -314,7 +317,7 @@ export default function MicrolotDetailModal({ microlot, isOpen, onClose }: Micro
                     )}
                   </Badge>
                 </div>
-                
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   {latestQualityControl.moisture && (
                     <div>
@@ -427,9 +430,8 @@ export default function MicrolotDetailModal({ microlot, isOpen, onClose }: Micro
               {microlot.traceabilityEvents.map((event, index) => (
                 <div key={event.id} className="flex items-start space-x-3">
                   <div className="flex-shrink-0">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      index === 0 ? 'bg-green-500' : 'bg-gray-300'
-                    }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${index === 0 ? 'bg-green-500' : 'bg-gray-300'
+                      }`}>
                       <Clock className="h-4 w-4 text-white" />
                     </div>
                   </div>
@@ -440,6 +442,59 @@ export default function MicrolotDetailModal({ microlot, isOpen, onClose }: Micro
                           {eventTypeLabels[event.eventType as keyof typeof eventTypeLabels] || event.eventType}
                         </h4>
                         <p className="text-sm text-gray-600">{event.description}</p>
+
+                        {/* Event Metadata Rendering */}
+                        {event.data && (
+                          <div className="mt-2 text-sm bg-white p-2 rounded border border-gray-100 grid grid-cols-2 gap-x-4 gap-y-1">
+                            {event.data.processingType && (
+                              <>
+                                <span className="text-gray-500">Tipo:</span>
+                                <span className="font-medium text-gray-900">{event.data.processingType}</span>
+                              </>
+                            )}
+                            {event.data.fermentationHours && (
+                              <>
+                                <span className="text-gray-500">Fermentación:</span>
+                                <span className="font-medium text-gray-900">{event.data.fermentationHours} hrs</span>
+                              </>
+                            )}
+                            {event.data.dryingMethod && (
+                              <>
+                                <span className="text-gray-500">Método:</span>
+                                <span className="font-medium text-gray-900">{event.data.dryingMethod}</span>
+                              </>
+                            )}
+                            {event.data.dryingDays && (
+                              <>
+                                <span className="text-gray-500">Días:</span>
+                                <span className="font-medium text-gray-900">{event.data.dryingDays}</span>
+                              </>
+                            )}
+                            {event.data.finalMoisture && (
+                              <>
+                                <span className="text-gray-500">Humedad:</span>
+                                <span className="font-medium text-gray-900">{event.data.finalMoisture}%</span>
+                              </>
+                            )}
+                            {event.data.storageLocation && (
+                              <>
+                                <span className="text-gray-500">Ubicación:</span>
+                                <span className="font-medium text-gray-900">{event.data.storageLocation}</span>
+                              </>
+                            )}
+                            {event.data.millingYield && (
+                              <>
+                                <span className="text-gray-500">Rendimiento:</span>
+                                <span className="font-medium text-gray-900">{event.data.millingYield}%</span>
+                              </>
+                            )}
+                            {event.data.notes && (
+                              <div className="col-span-2 mt-1 pt-1 border-t border-gray-100 text-gray-600 italic">
+                                "{event.data.notes}"
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {event.location && (
                           <p className="text-sm text-gray-500 flex items-center mt-1">
                             <MapPin className="h-3 w-3 mr-1" />

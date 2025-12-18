@@ -1,29 +1,28 @@
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
-import apiClient from '@/services/apiClient';
-import { Plus, Users, ClipboardList, Scale, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Users, ClipboardList, Scale, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { FarmWorker, CoffeeCollection } from '@/types/workers';
 import WorkerModal from '@/components/workers/WorkerModal';
 import CollectionModal from '@/components/workers/CollectionModal';
 import TaskAssignmentModal from '@/components/workers/TaskAssignmentModal';
 import { toast } from 'sonner';
+import { offlineDB } from '@/utils/offlineDB';
+import { getCloudSyncService } from '@/services/cloudSync';
 
 export default function Workers() {
     const [workers, setWorkers] = useState<FarmWorker[]>([]);
     const [loading, setLoading] = useState(true);
     const [isWorkerModalOpen, setIsWorkerModalOpen] = useState(false);
+    const [syncing, setSyncing] = useState(false);
 
     // Selection states for modals
     const [selectedWorkerForCollection, setSelectedWorkerForCollection] = useState<FarmWorker | null>(null);
     const [selectedWorkerForTask, setSelectedWorkerForTask] = useState<FarmWorker | null>(null);
 
     // History expansion state
-    const [expandedWorkerId, setExpandedWorkerId] = useState<string | null>(null);
+    const [expandedWorkerId, setExpandedWorkerId] = useState<string | number | null>(null);
     const [expandedHistory, setExpandedHistory] = useState<CoffeeCollection[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
-
-    // Log render state
-    console.log('Rendering Workers component. Loading:', loading, 'Workers count:', workers.length);
 
     useEffect(() => {
         loadWorkers();
@@ -31,94 +30,165 @@ export default function Workers() {
 
     const loadWorkers = async () => {
         try {
-            const res = await apiClient.get('/workers');
-            console.log('Workers Response:', res); // DEBUG
-            if (res.success && Array.isArray(res.data)) {
-                console.log('Setting workers payload:', JSON.stringify(res.data)); // DEBUG JSON
-                setWorkers(res.data as FarmWorker[]);
-            } else {
-                console.warn('Workers response invalid:', res);
-                setWorkers([]);
-            }
+            setLoading(true);
+            const localWorkers = await offlineDB.workers.filter(w => w.isActive === true).toArray();
+
+            // Map to FarmWorker interface
+            const mappedWorkers: FarmWorker[] = localWorkers.map(w => ({
+                id: w.id!,
+                serverId: w.serverId,
+                farmId: w.farmId,
+                name: w.name,
+                role: w.role,
+                phone: w.phone,
+                isActive: w.isActive,
+                createdAt: w.createdAt || new Date().toISOString()
+            }));
+
+            setWorkers(mappedWorkers);
         } catch (error) {
-            console.error('Error loading workers', error);
-            // toast.error('Error cargando trabajadores'); // Optional: suppress on init
+            console.error('Error loading workers from offlineDB', error);
+            toast.error('Error cargando trabajadores locales');
         } finally {
             setLoading(false);
         }
     };
 
+    const handleSync = async () => {
+        try {
+            setSyncing(true);
+            toast.info('Sincronizando con la nube...');
+            const result = await getCloudSyncService().syncData();
+
+            if (result.success) {
+                toast.success('Sincronización completada');
+                await loadWorkers(); // Reload data
+            } else {
+                toast.error(`Error de sincronización: ${result.errors[0] || 'Desconocido'}`);
+            }
+        } catch (error) {
+            console.error('Sync error:', error);
+            toast.error('Error al sincronizar');
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     const handleCreateWorker = async (data: { name: string; role: string; phone: string }) => {
         try {
-            await apiClient.post('/workers', data);
-            toast.success('Trabajador creado correctamente');
-            loadWorkers();
+            // Get current farm ID (assuming single farm context for now, or get from settings/state)
+            // For now, we'll try to get the first farm from offlineDB or default to '1'
+            const farm = await offlineDB.farms.toCollection().first();
+            const farmId = farm ? farm.serverId || farm.id?.toString() || '1' : '1';
+
+            await offlineDB.workers.add({
+                ...data,
+                farmId,
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                pendingSync: true,
+                action: 'create'
+            });
+
+            toast.success('Trabajador guardado localmente');
+            await loadWorkers();
+
+            // Trigger background sync
+            getCloudSyncService().syncData().then(() => loadWorkers());
+
         } catch (error: any) {
             console.error('Error creating worker:', error);
-            const msg = error.response?.data?.error || error.message || 'Error al crear trabajador';
-            toast.error(msg);
+            toast.error('Error al crear trabajador');
         }
     };
 
     const handleSaveCollection = async (data: any) => {
-        const token = localStorage.getItem('token');
-        const res = await fetch('/api/workers/collections', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
+        try {
+            // Data comes as { workerId, lotId, quantityKg, method, notes, collectionDate }
+            // WorkerId and LotId passed from modals might be server IDs or local IDs depending on how object was passed
+            // The selectedWorkerForCollection has .id (number local)
 
-        if (res.ok) {
-            toast.success('Recolección registrada exitosamente');
-            // If viewing history of this worker, reload it
-            if (expandedWorkerId === data.workerId) {
-                loadHistory(data.workerId);
+            await offlineDB.collections.add({
+                workerId: Number(data.workerId),
+                lotId: Number(data.lotId),
+                quantityKg: Number(data.quantityKg),
+                method: data.method,
+                notes: data.notes,
+                collectionDate: data.collectionDate,
+                pendingSync: true,
+                action: 'create'
+            });
+
+            toast.success('Recolección guardada localmente');
+
+            // If viewing history, reload it
+            if (expandedWorkerId === selectedWorkerForCollection?.id) {
+                loadHistory(selectedWorkerForCollection.id);
             }
-        } else {
-            toast.error('Error al registrar recolección');
+
+            // Trigger sync
+            getCloudSyncService().syncData();
+
+        } catch (error) {
+            console.error('Error saving collection:', error);
+            toast.error('Error al guardar recolección');
         }
     };
 
     const handleAssignTask = async (data: any) => {
-        const token = localStorage.getItem('token');
-        const res = await fetch('/api/workers/tasks', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
+        try {
+            await offlineDB.workerTasks.add({
+                workerId: Number(data.workerId),
+                type: data.type,
+                description: data.description,
+                status: 'PENDING',
+                dueDate: data.dueDate,
+                pendingSync: true,
+                action: 'create'
+            });
 
-        if (res.ok) {
-            toast.success('Tarea asignada correctamente');
-        } else {
+            toast.success('Tarea asignada localmente');
+            getCloudSyncService().syncData();
+        } catch (error) {
+            console.error('Error assigning task:', error);
             toast.error('Error al asignar tarea');
         }
     };
 
-    const loadHistory = async (workerId: string) => {
+    const loadHistory = async (workerId: string | number) => {
         setLoadingHistory(true);
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/workers/${workerId}/collections`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setExpandedHistory(data);
-            }
+            // Fetch collections for this worker
+            const collections = await offlineDB.collections
+                .where('workerId')
+                .equals(Number(workerId))
+                .reverse()
+                .toArray();
+
+            // Fetch lots to resolve names
+            const historyWithNames = await Promise.all(collections.map(async (c) => {
+                const lot = await offlineDB.lots.get(c.lotId);
+                return {
+                    id: c.id!.toString(),
+                    workerId: c.workerId.toString(),
+                    lotId: c.lotId.toString(),
+                    quantityKg: c.quantityKg,
+                    collectionDate: c.collectionDate,
+                    method: c.method as 'MANUAL' | 'BASCULA',
+                    notes: c.notes,
+                    lotName: lot ? lot.name : 'Lote desconocido'
+                };
+            }));
+
+            setExpandedHistory(historyWithNames);
         } catch (error) {
-            console.error(error);
+            console.error('Error loading history:', error);
         } finally {
             setLoadingHistory(false);
         }
     };
 
-    const toggleHistory = (workerId: string) => {
+    const toggleHistory = (workerId: string | number) => {
         if (expandedWorkerId === workerId) {
             setExpandedWorkerId(null);
             setExpandedHistory([]);
@@ -139,13 +209,25 @@ export default function Workers() {
                         </h1>
                         <p className="text-gray-600 mt-1">Gestiona tu equipo, asigna tareas y registra recolecciones</p>
                     </div>
-                    <button
-                        onClick={() => setIsWorkerModalOpen(true)}
-                        className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2 font-medium shadow-sm"
-                    >
-                        <Plus className="h-5 w-5" />
-                        Nuevo Trabajador
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleSync}
+                            disabled={syncing}
+                            className={`px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors ${syncing ? 'opacity-70' : ''}`}
+                        >
+                            <RefreshCw className={`h-5 w-5 ${syncing ? 'animate-spin' : ''}`} />
+                            <span className="hidden md:inline">Sincronizar</span>
+                        </button>
+
+                        <button
+                            onClick={() => setIsWorkerModalOpen(true)}
+                            className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2 font-medium shadow-sm"
+                        >
+                            <Plus className="h-5 w-5" />
+                            <span className="hidden md:inline">Nuevo Trabajador</span>
+                            <span className="md:hidden">Nuevo</span>
+                        </button>
+                    </div>
                 </div>
 
                 {loading ? (
@@ -168,8 +250,11 @@ export default function Workers() {
                             <div key={worker.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-md">
                                 <div className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-lg">
+                                        <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-lg relative">
                                             {(worker.name && worker.name.length > 0) ? worker.name.charAt(0) : '?'}
+                                            {!worker.serverId && (
+                                                <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full border border-white" title="Pendiente de sincronizar" />
+                                            )}
                                         </div>
                                         <div>
                                             <h3 className="font-semibold text-gray-900 text-lg">{worker.name || 'Sin Nombre'}</h3>

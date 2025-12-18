@@ -7,6 +7,7 @@ export interface CoffeePrice {
   market: 'local' | 'national' | 'international';
   quality: CoffeeQuality;
   source: string;
+  region?: string; // Added for Strict Reality (Local vs National)
   volume?: number; // libras
 }
 
@@ -19,51 +20,29 @@ export interface CoffeeQuality {
   altitude: number; // metros sobre el nivel del mar
 }
 
-export interface MarketTrend {
-  id: string;
-  period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
-  startDate: Date;
-  endDate: Date;
-  priceChange: number; // porcentaje
-  volumeChange: number; // porcentaje
-  trend: 'bullish' | 'bearish' | 'stable';
-  confidence: number; // 0-1
-  factors: string[];
-}
-
-export interface PricePrediction {
-  id: string;
-  targetDate: Date;
-  predictedPrice: number;
-  confidence: number; // 0-1
-  priceRange: {
-    min: number;
-    max: number;
-  };
-  factors: PredictionFactor[];
-  methodology: 'ML' | 'Statistical' | 'Hybrid';
-  lastUpdated: Date;
-}
-
-export interface PredictionFactor {
-  name: string;
-  impact: number; // -1 a 1
-  confidence: number; // 0-1
-  description: string;
-  category: 'weather' | 'economic' | 'political' | 'supply' | 'demand' | 'quality';
-}
+// ... (omitted)
 
 export interface MarketOpportunity {
   id: string;
-  type: 'export' | 'local' | 'specialty' | 'direct_trade';
-  market: string;
-  estimatedPrice: number;
-  volume: number;
+  // Legacy fields (optional)
+  type?: 'export' | 'local' | 'specialty' | 'direct_trade';
+  market?: string;
+  estimatedPrice?: number;
+  // New fields for UI
+  marketName: string;
+  description: string;
+  potentialRevenue: string; // Changed to string for display e.g. "Premium 10%"
+  difficulty?: 'Baja' | 'Media' | 'Alta';
+  status?: string;
+
+  volume?: number;
   requirements: string[];
-  deadline: Date;
-  profitability: number; // porcentaje
-  riskLevel: 'low' | 'medium' | 'high';
+  deadline?: Date;
+  profitability?: number; // porcentaje
+  riskLevel?: 'low' | 'medium' | 'high';
   contact?: string;
+  contactPhone?: string;
+  contactUrl?: string;
 }
 
 export interface CompetitorAnalysis {
@@ -210,4 +189,27 @@ export interface SalesOptimization {
     roi: number;
   };
   alternatives: SalesStrategy[];
+}
+
+export interface MarketTrend {
+  id: string;
+  name: string;
+  description: string;
+  impact: 'positive' | 'negative' | 'neutral';
+  trend: 'up' | 'down' | 'stable';
+  category: 'price' | 'demand' | 'supply' | 'climate';
+  confidence: number;
+}
+
+export interface PricePrediction {
+  date: Date;
+  price: number;
+  confidence: {
+    lower: number;
+    upper: number;
+  };
+  factors: {
+    name: string;
+    impact: number;
+  }[];
 }

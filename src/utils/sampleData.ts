@@ -1,6 +1,13 @@
 // Datos de ejemplo para la aplicación CaféColombia
 import { offlineDB } from './offlineDB';
 
+// Helper to get dynamic dates relative to today
+const getRelativeDate = (daysOffset: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + daysOffset);
+  return d.toISOString().split('T')[0];
+};
+
 export const sampleData = {
   lots: [
     {
@@ -59,7 +66,7 @@ export const sampleData = {
       inputId: 'fertilizer-npk',
       quantity: 50,
       unit: 'kg',
-      expirationDate: '2025-06-30',
+      expirationDate: getRelativeDate(180), // +6 months
       location: 'Bodega Principal',
       lastSync: new Date(),
       pendingSync: false
@@ -69,7 +76,7 @@ export const sampleData = {
       inputId: 'insecticide-cypermethrin',
       quantity: 5,
       unit: 'L',
-      expirationDate: '2024-12-15',
+      expirationDate: getRelativeDate(30),
       location: 'Bodega Químicos',
       lastSync: new Date(),
       pendingSync: false
@@ -79,7 +86,7 @@ export const sampleData = {
       inputId: 'fungicide-copper',
       quantity: 25,
       unit: 'kg',
-      expirationDate: '2025-03-20',
+      expirationDate: getRelativeDate(90),
       location: 'Bodega Químicos',
       lastSync: new Date(),
       pendingSync: false
@@ -89,7 +96,7 @@ export const sampleData = {
       inputId: 'fertilizer-organic',
       quantity: 100,
       unit: 'kg',
-      expirationDate: '2024-08-10',
+      expirationDate: getRelativeDate(60),
       location: 'Bodega Principal',
       lastSync: new Date(),
       pendingSync: false
@@ -103,7 +110,7 @@ export const sampleData = {
       description: 'Aplicación de fertilizante NPK en Lote El Mirador según cronograma',
       type: 'Fertilización',
       status: 'Pendiente',
-      dueDate: '2024-01-20',
+      dueDate: getRelativeDate(5),
       lotId: 'lot-001',
       assignedTo: 'Juan Pérez',
       lastSync: new Date(),
@@ -115,7 +122,7 @@ export const sampleData = {
       description: 'Inspección semanal de broca del café en todos los lotes',
       type: 'Monitoreo',
       status: 'En Progreso',
-      dueDate: '2024-01-18',
+      dueDate: getRelativeDate(2),
       lotId: 'lot-002',
       assignedTo: 'María González',
       lastSync: new Date(),
@@ -127,10 +134,10 @@ export const sampleData = {
       description: 'Poda de mantenimiento en Lote San José',
       type: 'Mantenimiento',
       status: 'Completada',
-      dueDate: '2024-01-15',
+      dueDate: getRelativeDate(-2),
       lotId: 'lot-003',
       assignedTo: 'Carlos Rodríguez',
-      completedAt: '2024-01-15T10:30:00Z',
+      completedAt: getRelativeDate(-2) + 'T10:30:00Z',
       lastSync: new Date(),
       pendingSync: false
     },
@@ -140,7 +147,7 @@ export const sampleData = {
       description: 'Recolección de café maduro en Lote Santa Rosa',
       type: 'Cosecha',
       status: 'Pendiente',
-      dueDate: '2024-01-25',
+      dueDate: getRelativeDate(10),
       lotId: 'lot-004',
       assignedTo: 'Ana López',
       lastSync: new Date(),
@@ -149,13 +156,14 @@ export const sampleData = {
   ],
 
   pestMonitoring: [
+    // Datos distribuidos en los últimos 3 meses para mostrar tendencia
     {
       serverId: 'pest-001',
       lotId: 'lot-001',
       pestType: 'Broca del café',
       severity: 'Bajo',
       affectedArea: 0.2,
-      observationDate: '2024-01-15',
+      observationDate: getRelativeDate(-2), // Hace 2 días
       notes: 'Incidencia mínima, continuar monitoreo',
       photos: [],
       lastSync: new Date(),
@@ -167,7 +175,7 @@ export const sampleData = {
       pestType: 'Roya del café',
       severity: 'Medio',
       affectedArea: 0.8,
-      observationDate: '2024-01-14',
+      observationDate: getRelativeDate(-15), // Hace 15 días
       notes: 'Aplicar tratamiento preventivo',
       photos: [],
       lastSync: new Date(),
@@ -179,8 +187,32 @@ export const sampleData = {
       pestType: 'Minador de la hoja',
       severity: 'Alto',
       affectedArea: 1.2,
-      observationDate: '2024-01-16',
+      observationDate: getRelativeDate(-45), // Hace 1.5 meses
       notes: 'Requiere tratamiento inmediato',
+      photos: [],
+      lastSync: new Date(),
+      pendingSync: false
+    },
+    {
+      serverId: 'pest-004',
+      lotId: 'lot-001',
+      pestType: 'Broca del café',
+      severity: 'Medio',
+      affectedArea: 0.5,
+      observationDate: getRelativeDate(-65), // Hace 2 meses
+      notes: 'Aumento leve',
+      photos: [],
+      lastSync: new Date(),
+      pendingSync: false
+    },
+    {
+      serverId: 'pest-005',
+      lotId: 'lot-003',
+      pestType: 'Cochinilla',
+      severity: 'Bajo',
+      affectedArea: 0.1,
+      observationDate: getRelativeDate(-85), // Hace casi 3 meses
+      notes: 'Foco inicial',
       photos: [],
       lastSync: new Date(),
       pendingSync: false
@@ -191,7 +223,7 @@ export const sampleData = {
     {
       serverId: 'harvest-001',
       lotId: 'lot-001',
-      date: '2024-01-10',
+      date: getRelativeDate(-5),
       quantity: 150,
       quality: 'Premium',
       notes: 'Café cereza bien maduro',
@@ -202,7 +234,7 @@ export const sampleData = {
     {
       serverId: 'harvest-002',
       lotId: 'lot-002',
-      date: '2024-01-12',
+      date: getRelativeDate(-12),
       quantity: 200,
       quality: 'Estándar',
       notes: 'Mezcla de cerezas maduras y semi-maduras',
@@ -213,7 +245,7 @@ export const sampleData = {
     {
       serverId: 'harvest-003',
       lotId: 'lot-004',
-      date: '2024-01-14',
+      date: getRelativeDate(-20),
       quantity: 300,
       quality: 'Premium',
       notes: 'Excelente calidad, café especial',
@@ -229,7 +261,7 @@ export const sampleData = {
       description: 'Compra fertilizante NPK',
       amount: 125000,
       category: 'Insumos',
-      date: '2024-01-05',
+      date: getRelativeDate(-25),
       lotId: 'lot-001',
       receipt: 'REC-001',
       lastSync: new Date(),
@@ -240,7 +272,7 @@ export const sampleData = {
       description: 'Mano de obra cosecha',
       amount: 80000,
       category: 'Mano de obra',
-      date: '2024-01-10',
+      date: getRelativeDate(-5),
       lotId: 'lot-001',
       receipt: 'REC-002',
       lastSync: new Date(),
@@ -251,7 +283,7 @@ export const sampleData = {
       description: 'Insecticida para broca',
       amount: 45000,
       category: 'Insumos',
-      date: '2024-01-08',
+      date: getRelativeDate(-10),
       lotId: 'lot-002',
       receipt: 'REC-003',
       lastSync: new Date(),
@@ -404,7 +436,7 @@ export async function clearAllData() {
       await offlineDB.expenses.clear();
       await offlineDB.syncQueue.clear();
     });
-    
+
     console.log('🗑️ Todos los datos han sido eliminados');
   } catch (error) {
     console.error('❌ Error limpiando datos:', error);

@@ -53,7 +53,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             >
               <Menu className="h-6 w-6 text-gray-600" />
             </button>
-            
+
             <div className="flex items-center space-x-2">
               <Coffee className="h-8 w-8 text-amber-600" />
               <h1 className="text-xl font-bold text-gray-900">Café Colombia</h1>
@@ -76,7 +76,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </div>
 
             {/* PWA Settings Button */}
-            <button 
+            <button
               onClick={() => setShowPWASettings(true)}
               className="p-2 rounded-md hover:bg-gray-100 relative"
               title="Configuración PWA"
@@ -84,13 +84,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <Settings className="h-5 w-5 text-gray-600" />
             </button>
 
-            {/* Indicador de notificaciones (oculto en producción) */}
-            {!isProd && (
-              <ErrorBoundary fallback={<div className="hidden" />}>
-                <AINotificationIndicator />
-              </ErrorBoundary>
-            )}
-            
+            {/* Indicador de notificaciones (Visible en Prod) */}
+            <ErrorBoundary fallback={<div className="hidden" />}>
+              <AINotificationIndicator />
+            </ErrorBoundary>
+
             {/* User Profile */}
             <div className="relative" ref={userMenuRef}>
               <button
@@ -130,9 +128,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
       </header>
 
       {/* PWA Settings Modal */}
-      <PWASettings 
-        isOpen={showPWASettings} 
-        onClose={() => setShowPWASettings(false)} 
+      <PWASettings
+        isOpen={showPWASettings}
+        onClose={() => setShowPWASettings(false)}
       />
     </>
   );

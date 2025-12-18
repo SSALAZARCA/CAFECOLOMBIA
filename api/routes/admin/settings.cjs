@@ -29,6 +29,12 @@ const mockSettings = {
         smsProvider: 'twilio',
         paymentGateway: 'stripe',
         storageProvider: 's3'
+    },
+    payment: {
+        provider: 'stripe',
+        currency: 'COP',
+        publicKey: 'pk_test_sample',
+        autoRenew: true
     }
 };
 

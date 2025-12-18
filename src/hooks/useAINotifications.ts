@@ -71,7 +71,7 @@ export const useAINotifications = (
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
       const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
-      const endpoint = `${baseUrl}/api/ai/notifications/${encodeURIComponent(notificationId)}/read`;
+      const endpoint = `${baseUrl}/api/notifications/${encodeURIComponent(notificationId)}/read`;
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || localStorage.getItem('authToken')) : null;
@@ -84,11 +84,11 @@ export const useAINotifications = (
         // Fallback: marcar localmente si falla backend
         await aiService.markNotificationAsRead(notificationId);
       }
-      
+
       // Actualizar estado local
-      setNotifications(prev => 
-        prev.map(notification => 
-          notification.id === notificationId 
+      setNotifications(prev =>
+        prev.map(notification =>
+          notification.id === notificationId
             ? { ...notification, read: true }
             : notification
         )
@@ -103,7 +103,7 @@ export const useAINotifications = (
   const markAllAsRead = useCallback(async () => {
     try {
       const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
-      const endpoint = `${baseUrl}/api/ai/notifications/read-all`;
+      const endpoint = `${baseUrl}/api/notifications/read-all`;
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || localStorage.getItem('authToken')) : null;
@@ -116,14 +116,14 @@ export const useAINotifications = (
         // Fallback: marcar una por una localmente si falla backend
         const unreadNotifications = notifications.filter(n => !n.read);
         await Promise.all(
-          unreadNotifications.map(notification => 
+          unreadNotifications.map(notification =>
             aiService.markNotificationAsRead(notification.id)
           )
         );
       }
-      
+
       // Actualizar estado local
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(notification => ({ ...notification, read: true }))
       );
     } catch (err) {
@@ -140,9 +140,9 @@ export const useAINotifications = (
       if (notification && !notification.read) {
         await markAsRead(notificationId);
       }
-      
+
       // Remover de la lista local
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.filter(notification => notification.id !== notificationId)
       );
     } catch (err) {

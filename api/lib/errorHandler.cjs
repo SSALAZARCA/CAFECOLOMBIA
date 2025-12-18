@@ -3,7 +3,7 @@
  * Proporciona manejo centralizado y consistente de errores
  */
 
-const logger = require('./logger');
+const logger = require('./logger.cjs');
 
 /**
  * Clase personalizada para errores de la aplicación
@@ -15,7 +15,7 @@ class AppError extends Error {
     this.errorCode = errorCode;
     this.details = details;
     this.isOperational = true;
-    
+
     Error.captureStackTrace(this, this.constructor);
   }
 }
@@ -30,29 +30,29 @@ const ErrorCodes = {
   AUTH_TOKEN_EXPIRED: 'AUTH_TOKEN_EXPIRED',
   AUTH_ACCOUNT_LOCKED: 'AUTH_ACCOUNT_LOCKED',
   AUTH_ACCOUNT_INACTIVE: 'AUTH_ACCOUNT_INACTIVE',
-  
+
   // Errores de validación
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   INVALID_INPUT: 'INVALID_INPUT',
   MISSING_REQUIRED_FIELDS: 'MISSING_REQUIRED_FIELDS',
-  
+
   // Errores de base de datos
   DB_CONNECTION_ERROR: 'DB_CONNECTION_ERROR',
   DB_QUERY_ERROR: 'DB_QUERY_ERROR',
   DB_CONSTRAINT_ERROR: 'DB_CONSTRAINT_ERROR',
   DB_RECORD_NOT_FOUND: 'DB_RECORD_NOT_FOUND',
   DB_DUPLICATE_ENTRY: 'DB_DUPLICATE_ENTRY',
-  
+
   // Errores de negocio
   BUSINESS_RULE_VIOLATION: 'BUSINESS_RULE_VIOLATION',
   INSUFFICIENT_STOCK: 'INSUFFICIENT_STOCK',
   INVALID_STATUS_TRANSITION: 'INVALID_STATUS_TRANSITION',
-  
+
   // Errores del servidor
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
   RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
-  
+
   // Errores de configuración
   CONFIG_ERROR: 'CONFIG_ERROR',
   MISSING_ENV_VAR: 'MISSING_ENV_VAR'
@@ -98,11 +98,11 @@ function createDatabaseError(error, operation = null, details = null) {
   let errorCode = ErrorCodes.DB_QUERY_ERROR;
   let message = 'Error en la base de datos';
   let statusCode = 500;
-  
+
   // Mapear errores de MySQL
   if (error.code && MySQLErrorMap[error.code]) {
     errorCode = MySQLErrorMap[error.code];
-    
+
     switch (errorCode) {
       case ErrorCodes.DB_DUPLICATE_ENTRY:
         message = 'El registro ya existe';
@@ -122,7 +122,7 @@ function createDatabaseError(error, operation = null, details = null) {
         break;
     }
   }
-  
+
   const dbError = new AppError(message, statusCode, errorCode, {
     originalError: error.message,
     sqlState: error.sqlState,
@@ -130,7 +130,7 @@ function createDatabaseError(error, operation = null, details = null) {
     operation,
     ...details
   });
-  
+
   // Loggear el error completo para debugging
   logger.error('Database error', error, {
     errorCode,
@@ -138,7 +138,7 @@ function createDatabaseError(error, operation = null, details = null) {
     sqlState: error.sqlState,
     errno: error.errno
   });
-  
+
   return dbError;
 }
 
@@ -147,7 +147,7 @@ function createDatabaseError(error, operation = null, details = null) {
  */
 function errorHandler(err, req, res, next) {
   let error = err;
-  
+
   // Si no es un AppError, convertirlo
   if (!(error instanceof AppError)) {
     if (error.code && MySQLErrorMap[error.code]) {
@@ -168,7 +168,7 @@ function errorHandler(err, req, res, next) {
       );
     }
   }
-  
+
   // Loggear el error
   logger.error('Error handled by global error handler', error, {
     requestId: req.requestId,
@@ -179,7 +179,7 @@ function errorHandler(err, req, res, next) {
     userId: req.user?.id,
     userType: req.user?.role
   });
-  
+
   // Preparar respuesta de error
   const errorResponse = {
     success: false,
@@ -188,13 +188,13 @@ function errorHandler(err, req, res, next) {
     requestId: req.requestId,
     timestamp: new Date().toISOString()
   };
-  
+
   // Incluir detalles solo en desarrollo o para errores de validación
   if (process.env.NODE_ENV === 'development' || error.statusCode === 400) {
     errorResponse.details = error.details;
     errorResponse.stack = error.stack;
   }
-  
+
   res.status(error.statusCode).json(errorResponse);
 }
 
@@ -213,7 +213,7 @@ function asyncErrorHandler(fn) {
 function validateRequest(validationRules) {
   return (req, res, next) => {
     const errors = {};
-    
+
     // Validar campos requeridos
     if (validationRules.required) {
       validationRules.required.forEach(field => {
@@ -222,7 +222,7 @@ function validateRequest(validationRules) {
         }
       });
     }
-    
+
     // Validar formato de email
     if (validationRules.email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -233,7 +233,7 @@ function validateRequest(validationRules) {
         }
       });
     }
-    
+
     // Validar longitud mínima
     if (validationRules.minLength) {
       Object.entries(validationRules.minLength).forEach(([field, min]) => {
@@ -243,7 +243,7 @@ function validateRequest(validationRules) {
         }
       });
     }
-    
+
     // Validar longitud máxima
     if (validationRules.maxLength) {
       Object.entries(validationRules.maxLength).forEach(([field, max]) => {
@@ -253,11 +253,11 @@ function validateRequest(validationRules) {
         }
       });
     }
-    
+
     if (Object.keys(errors).length > 0) {
       return next(createValidationError('Error de validación', errors));
     }
-    
+
     next();
   };
 }

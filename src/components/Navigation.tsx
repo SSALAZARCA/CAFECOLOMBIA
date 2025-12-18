@@ -1,14 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
-<<<<<<< HEAD
 import { Home, MapPin, Package, Bug, BarChart3, Settings, Brain, Target, TrendingUp, Users } from 'lucide-react';
-
-const navigationItems = [
-=======
-import { Home, MapPin, Package, Bug, BarChart3, Settings, Brain, Target, TrendingUp } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 const baseItems = [
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Gestión de Finca', href: '/finca', icon: MapPin },
   { name: 'Control de Insumos', href: '/insumos', icon: Package },
@@ -34,7 +28,7 @@ export default function Navigation({ isOpen, onClose }: NavigationProps) {
   };
 
   const isGrowerRole = (role: string) => {
-    const growerRoles = ['coffee_grower','coffee-grower','caficultor','cafetero','farmer','usuario','user','trabajador'];
+    const growerRoles = ['coffee_grower', 'coffee-grower', 'caficultor', 'cafetero', 'farmer', 'usuario', 'user', 'trabajador'];
     return growerRoles.includes(role);
   };
 
@@ -46,7 +40,7 @@ export default function Navigation({ isOpen, onClose }: NavigationProps) {
         const role = normalizeRole(u?.tipo_usuario || u?.role);
         if (isGrowerRole(role)) return baseItems.filter(i => i.name !== 'Dashboard');
       }
-    } catch {}
+    } catch { }
     return baseItems;
   })();
 
@@ -64,7 +58,7 @@ export default function Navigation({ isOpen, onClose }: NavigationProps) {
         } else {
           setNavigationItems(baseItems);
         }
-      } catch {}
+      } catch { }
     }
   }, []);
 

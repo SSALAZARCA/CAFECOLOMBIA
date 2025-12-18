@@ -56,27 +56,27 @@ const mockSmartAlerts = [
 router.get('/smart', async (req, res) => {
   try {
     const { type, severity, farmId, isActive } = req.query;
-    
+
     let filteredAlerts = [...mockSmartAlerts];
-    
+
     // Aplicar filtros
     if (type) {
       filteredAlerts = filteredAlerts.filter(alert => alert.type === type);
     }
-    
+
     if (severity) {
       filteredAlerts = filteredAlerts.filter(alert => alert.severity === severity);
     }
-    
+
     if (farmId) {
       filteredAlerts = filteredAlerts.filter(alert => alert.farmId === farmId);
     }
-    
+
     if (isActive !== undefined) {
       const activeFilter = isActive === 'true';
       filteredAlerts = filteredAlerts.filter(alert => alert.isActive === activeFilter);
     }
-    
+
     res.json({
       success: true,
       data: filteredAlerts,
@@ -97,14 +97,14 @@ router.get('/smart', async (req, res) => {
 router.post('/smart', async (req, res) => {
   try {
     const { type, severity, title, message, farmId, lotId, metadata } = req.body;
-    
+
     if (!type || !severity || !title || !message) {
       return res.status(400).json({
         success: false,
         message: 'Tipo, severidad, título y mensaje son requeridos'
       });
     }
-    
+
     const newAlert = {
       id: `alert_${Date.now()}`,
       type,
@@ -117,9 +117,9 @@ router.post('/smart', async (req, res) => {
       createdAt: new Date(),
       metadata: metadata || {}
     };
-    
+
     mockSmartAlerts.push(newAlert);
-    
+
     res.status(201).json({
       success: true,
       message: 'Alerta creada exitosamente',
@@ -139,19 +139,19 @@ router.post('/smart', async (req, res) => {
 router.put('/smart/:id/acknowledge', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const alertIndex = mockSmartAlerts.findIndex(alert => alert.id === id);
-    
+
     if (alertIndex === -1) {
       return res.status(404).json({
         success: false,
         message: 'Alerta no encontrada'
       });
     }
-    
+
     mockSmartAlerts[alertIndex].acknowledgedAt = new Date();
     mockSmartAlerts[alertIndex].isActive = false;
-    
+
     res.json({
       success: true,
       message: 'Alerta marcada como reconocida',
@@ -189,7 +189,7 @@ router.get('/stats', async (req, res) => {
         market: mockSmartAlerts.filter(alert => alert.type === 'market').length
       }
     };
-    
+
     res.json({
       success: true,
       data: stats
@@ -201,6 +201,77 @@ router.get('/stats', async (req, res) => {
       message: 'Error interno del servidor',
       error: error.message
     });
+  }
+});
+
+// GET /api/alerts/settings - Obtener configuración
+router.get('/settings', async (req, res) => {
+  try {
+    // Mock settings
+    res.json({
+      thresholdAlerts: true,
+      weatherAlerts: true,
+      monitoringReminders: true,
+      treatmentReminders: true,
+      resistanceWarnings: true,
+      emailNotifications: true,
+      smsNotifications: false,
+      pushNotifications: true,
+      alertFrequency: 'IMMEDIATE',
+      quietHours: {
+        enabled: false,
+        start: '22:00',
+        end: '06:00'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/alerts/settings - Actualizar configuración
+router.put('/settings', async (req, res) => {
+  try {
+    // Mock success
+    res.json({ success: true, message: 'Configuración actualizada' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/alerts/:id/read - Marcar como leída
+router.put('/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const alert = mockSmartAlerts.find(a => a.id === id);
+    if (alert) alert.isRead = true;
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/alerts/:id/dismiss - Descartar alerta
+router.put('/:id/dismiss', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const alert = mockSmartAlerts.find(a => a.id === id);
+    if (alert) alert.isActive = false;
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/alerts/:id/action - Tomar acción
+router.post('/:id/action', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const alert = mockSmartAlerts.find(a => a.id === id);
+    if (alert) alert.actionTaken = true;
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

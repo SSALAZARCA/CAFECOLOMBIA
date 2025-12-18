@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { adminHttpClient } from '@/utils/adminHttpClient';
 import { useAdminStore } from '@/stores/adminStore';
 import { toast } from 'sonner';
-import { 
-  CheckCircle, 
-  XCircle, 
-  Loader2, 
+import {
+  CheckCircle,
+  XCircle,
+  Loader2,
   RefreshCw,
   Database,
   Shield,
@@ -34,26 +34,20 @@ export const AdminApiTest: React.FC = () => {
 
   const runApiTest = async (endpoint: string): Promise<TestResult> => {
     const startTime = Date.now();
-    
+
     try {
       let response;
-      
-<<<<<<< HEAD
-      if (endpoint === '/api/health') {
-        // Usar cliente admin para construir URL absoluta
-        response = await adminHttpClient.get('/api/health');
-=======
+
       if (endpoint === '/api/ping') {
-        // Test health endpoint without auth
-        response = await fetch('/api/ping');
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
+        // Usar cliente admin para construir URL absoluta
+        response = await adminHttpClient.get('/api/ping');
       } else {
         // Test authenticated endpoints
         response = await adminHttpClient.get(endpoint);
       }
-      
+
       const responseTime = Date.now() - startTime;
-      
+
       return {
         endpoint,
         status: 'success',
@@ -62,7 +56,7 @@ export const AdminApiTest: React.FC = () => {
       };
     } catch (error: any) {
       const responseTime = Date.now() - startTime;
-      
+
       return {
         endpoint,
         status: 'error',
@@ -75,7 +69,7 @@ export const AdminApiTest: React.FC = () => {
   const runAllTests = async () => {
     setIsRunning(true);
     setResults([]);
-    
+
     toast.info('Iniciando pruebas de API...', {
       description: 'Verificando conectividad con el backend'
     });
@@ -91,16 +85,16 @@ export const AdminApiTest: React.FC = () => {
       }]);
 
       const result = await runApiTest(test.endpoint);
-      
+
       // Update the result
-      setResults(prev => 
-        prev.map(r => 
+      setResults(prev =>
+        prev.map(r =>
           r.endpoint === test.endpoint ? result : r
         )
       );
 
       testResults.push(result);
-      
+
       // Small delay between tests
       await new Promise(resolve => setTimeout(resolve, 500));
     }
@@ -155,7 +149,7 @@ export const AdminApiTest: React.FC = () => {
             Verificar conectividad y funcionalidad del backend
           </p>
         </div>
-        
+
         <button
           onClick={runAllTests}
           disabled={isRunning}
@@ -191,7 +185,7 @@ export const AdminApiTest: React.FC = () => {
             )}
           </div>
         </div>
-        
+
         {currentAdmin && (
           <div className="mt-2 text-sm text-gray-600">
             Usuario: {currentAdmin.name} ({currentAdmin.email})
@@ -224,7 +218,7 @@ export const AdminApiTest: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-3">
               {result.responseTime && (
                 <span className="text-xs text-gray-500">
@@ -233,11 +227,10 @@ export const AdminApiTest: React.FC = () => {
               )}
               <div className="flex items-center space-x-2">
                 {getStatusIcon(result.status)}
-                <span className={`text-sm ${
-                  result.status === 'success' ? 'text-green-700' :
-                  result.status === 'error' ? 'text-red-700' :
-                  'text-blue-700'
-                }`}>
+                <span className={`text-sm ${result.status === 'success' ? 'text-green-700' :
+                    result.status === 'error' ? 'text-red-700' :
+                      'text-blue-700'
+                  }`}>
                   {result.message}
                 </span>
               </div>

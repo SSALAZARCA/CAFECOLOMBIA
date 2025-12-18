@@ -6,9 +6,60 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
+
+// ==========================================
+// LEGACY TABLES SUPPORT (AUTH SYSTEM)
+// ==========================================
+
+model AdminUser {
+  id               Int       @id @default(autoincrement())
+  email            String    @unique
+  password_hash    String
+  name             String
+  is_super_admin   Boolean   @default(false)
+  is_active        Boolean   @default(true)
+  last_login_at    DateTime?
+  created_at       DateTime  @default(now())
+
+  @@map("admin_users")
+}
+
+model CoffeeGrower {
+  id                    Int       @id @default(autoincrement())
+  identification_number String?
+  identification_type   String?
+  full_name             String
+  email                 String    @unique
+  password_hash         String
+  status                String    @default("active")
+  created_by            String?
+  created_at            DateTime  @default(now())
+  
+  // Relaciones
+  farms                 FarmLegacy[]
+
+  @@map("coffee_growers")
+}
+
+// Renaming generic Farm to match legacy if needed, or mapping legacy farm to this
+model FarmLegacy {
+  id               Int          @id @default(autoincrement())
+  name             String
+  coffee_grower_id Int
+  status           String       @default("active")
+  
+  coffeeGrower     CoffeeGrower @relation(fields: [coffee_grower_id], references: [id])
+
+  @@map("farms")
+}
+
+// ==========================================
+// END LEGACY TABLES 
+// ==========================================
+
 
 // Modelo de Usuario/Perfil
 model User {
@@ -17,37 +68,20 @@ model User {
   password  String
   firstName String
   lastName  String
-  role      UserRole @default(TRABAJADOR)
+  role      String   @default("TRABAJADOR") // Was Enum UserRole
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relaciones
-  farms            Farm[]
-  agriculturalTasks AgriculturalTask[]
-  expenses         Expense[]
-  pestMonitoring   PestMonitoring[]
-  harvests         Harvest[]
-  processing       Processing[]
-  qualityControls  QualityControl[]
-  traceabilityEvents TraceabilityEvent[]
-  generatedDocuments GeneratedDocument[]
-
   @@map("users")
 }
 
-enum UserRole {
-  ADMINISTRADOR
-  TRABAJADOR
-  CERTIFICADOR
-}
-
-// Modelo de Finca
+// Modelo de Finca (Modern)
 model Farm {
   id          String  @id @default(cuid())
   name        String
   location    String
-  area        Float // en hectáreas
+  area        Float // en hect├íreas
   altitude    Float? // metros sobre el nivel del mar
   coordinates String? // JSON con coordenadas GPS
   description String?
@@ -56,476 +90,149 @@ model Farm {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relaciones
-  owner User @relation(fields: [ownerId], references: [id])
-  lots  Lot[]
-  workers FarmWorker[]
+  // Fields for Configuration/Dashboard
+  department       String?
+  municipality     String?
+  address          String?
+  soilType         String? @map("soil_type")
+  processingMethod String? @map("processing_method")
+  coffeeVarieties  String? @map("coffee_varieties") // CSV string
 
-  @@map("farms")
+  workers     FarmWorker[]
+
+  @@map("farms_modern") // Renamed to avoid collision with legacy
 }
 
-// Modelo de Lote
-model Lot {
-  id          String  @id @default(cuid())
-  name        String
-  farmId      String
-  area        Float // en hectáreas
-  variety     String // variedad de café
-  plantingDate DateTime?
-  coordinates String? // JSON con coordenadas GPS del lote
-  soilType    String?
-  slope       Float? // pendiente en grados
-  isActive    Boolean @default(true)
+
+// Modelo de Colaborador
+model FarmWorker {
+  id        String   @id @default(cuid())
+  farmId    String
+  name      String
+  role      String   @default("RECOLECTOR")
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  farm      Farm     @relation(fields: [farmId], references: [id])
+  collections CoffeeCollection[]
+  tasks       WorkerTask[]
+
+  @@map("farm_workers")
+}
+
+// Modelo de Recolecci├│n de Caf├®
+model CoffeeCollection {
+  id             String   @id @default(cuid())
+  workerId       String
+  lotId          String
+  quantityKg     Float
+  collectionDate DateTime @default(now())
+  method         String   @default("MANUAL") // MANUAL, BASCULA
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  worker         FarmWorker @relation(fields: [workerId], references: [id])
+  
+  @@index([workerId])
+  @@index([lotId])
+  @@map("coffee_collections")
+}
+
+// Modelo de Tareas Asignadas
+model WorkerTask {
+  id          String   @id @default(cuid())
+  workerId    String
+  type        String // FERTILIZACION, PODA, LIMPIEZA, OTRO
+  description String
+  status      String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  dueDate     DateTime?
+  completedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relaciones
-  farm              Farm @relation(fields: [farmId], references: [id])
-  agriculturalTasks AgriculturalTask[]
-  inputUsage        InputUsage[]
-  pestMonitoring    PestMonitoring[]
-  expenses          Expense[]
-  harvests          Harvest[]
-  collections       CoffeeCollection[]
-  microlots         Microlot[]
+  worker      FarmWorker @relation(fields: [workerId], references: [id])
 
-  @@map("lots")
+  @@map("worker_tasks")
 }
 
-// Modelo de Insumos
+// Modelo de Insumos (Catßlogo)
 model Input {
-  id               String    @id @default(cuid())
-  name             String
-  type             InputType
-  brand            String?
-  activeIngredient String?
-  concentration    String?
-  unit             String // kg, L, etc.
-  gracePeriodDays  Int       @default(0) // período de carencia en días
-  isActive         Boolean   @default(true)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id                      Int      @id @default(autoincrement())
+  name                    String   @unique
+  type                    String
+  brand                   String?
+  activeIngredient        String?
+  concentration           String?
+  unit                    String
+  carencyPeriod           Int?
+  reentryPeriod           Int?
+  maxApplicationsPerCycle Int?
+  dosagePerHectare        Float?
+  description             String?
+  safetyInstructions      String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  // Relaciones
   inventory  Inventory[]
-
+  inputUsage InputUsage[]
+  
   @@map("inputs")
 }
 
-enum InputType {
-  FERTILIZANTE
-  PESTICIDA
-  FUNGICIDA
-  HERBICIDA
-  ABONO_ORGANICO
-  OTRO
-}
-
-// Modelo de Inventario
+// Modelo de Inventario (Existencias)
 model Inventory {
-  id            String   @id @default(cuid())
-  inputId       String
-  quantity      Float
-  unit          String
-  purchaseDate  DateTime
-  expiryDate    DateTime?
-  supplier      String?
-  batchNumber   String?
-  unitCost      Float
-  totalCost     Float
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             Int       @id @default(autoincrement())
+  inputId        Int
+  quantity       Float
+  unitCost       Float
+  supplier       String
+  purchaseDate   DateTime
+  expirationDate DateTime?
+  batchNumber    String?
+  location       String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  // Relaciones
   input      Input        @relation(fields: [inputId], references: [id])
   inputUsage InputUsage[]
 
   @@map("inventory")
 }
 
-// Modelo de Tareas Agrícolas
-model AgriculturalTask {
-  id          String     @id @default(cuid())
-  name        String
-  type        TaskType
-  description String?
-  lotId       String
-  assignedTo  String?
-  assignedWorkerId String?
-  scheduledDate DateTime
-  completedDate DateTime?
-  status      TaskStatus @default(PENDIENTE)
-  notes       String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  // Relaciones
-  lot        Lot          @relation(fields: [lotId], references: [id])
-  assignedUser User?      @relation(fields: [assignedTo], references: [id])
-  assignedWorker FarmWorker? @relation(fields: [assignedWorkerId], references: [id])
-  inputUsage InputUsage[]
-
-  @@map("agricultural_tasks")
-}
-
-enum TaskType {
-  SIEMBRA
-  FERTILIZACION
-  FUMIGACION
-  PODA
-  COSECHA
-  MANTENIMIENTO
-  CONTROL_PLAGAS
-  OTRO
-}
-
-enum TaskStatus {
-  PENDIENTE
-  EN_PROGRESO
-  COMPLETADA
-  CANCELADA
-}
-
 // Modelo de Uso de Insumos
 model InputUsage {
-  id                String   @id @default(cuid())
-  inventoryId       String
-  taskId            String
-  lotId             String
-  quantityUsed      Float
-  applicationDate   DateTime
-  applicationMethod String?
-  gracePeriodEnd    DateTime // fecha fin del período de carencia
-  notes             String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 Int      @id @default(autoincrement())
+  inventoryId        Int
+  inputId            Int?
+  agriculturalTaskId Int?
+  quantityUsed       Float
+  notes              String?
+  createdAt          DateTime @default(now())
 
-  // Relaciones
-  inventory Inventory        @relation(fields: [inventoryId], references: [id])
-  task      AgriculturalTask @relation(fields: [taskId], references: [id])
-  lot       Lot              @relation(fields: [lotId], references: [id])
+  inventory        Inventory         @relation(fields: [inventoryId], references: [id])
+  input            Input?            @relation(fields: [inputId], references: [id])
+  // agriculturalTask AgriculturalTask? @relation(fields: [agriculturalTaskId], references: [id])
 
   @@map("input_usage")
 }
 
-// Modelo de Monitoreo de Plagas
-model PestMonitoring {
-  id               String   @id @default(cuid())
-  lotId            String
-  pestType         String
-  pestName         String
-  infestationLevel Float // porcentaje de infestación
-  sampledPlants    Int
-  affectedPlants   Int
-  monitoringDate   DateTime
-  monitoredBy      String
-  notes            String?
-  photoUrl         String?
-  actionRequired   Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    String   // Stores ID of CoffeeGrower (Int as String) or AdminUser
+  type      String   // 'analysis_complete', 'urgent_alert', 'recommendation', 'system_update'
+  agentType String   // 'phytosanitary', 'predictive', 'rag_assistant', 'optimization'
+  title     String
+  message   String
+  priority  String   // 'low', 'medium', 'high', 'critical'
+  read      Boolean  @default(false)
+  data      String?  // JSON string
+  createdAt DateTime @default(now())
 
-  // Relaciones
-  lot         Lot  @relation(fields: [lotId], references: [id])
-  monitoredByUser User @relation(fields: [monitoredBy], references: [id])
-
-  @@map("pest_monitoring")
-}
-
-// Modelo de Gastos
-model Expense {
-  id          String      @id @default(cuid())
-  description String
-  category    ExpenseCategory
-  amount      Float
-  date        DateTime
-  lotId       String?
-  recordedBy  String
-  supplier    String?
-  invoiceNumber String?
-  notes       String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  // Relaciones
-  lot            Lot?  @relation(fields: [lotId], references: [id])
-  recordedByUser User  @relation(fields: [recordedBy], references: [id])
-
-  @@map("expenses")
-}
-
-enum ExpenseCategory {
-  MANO_DE_OBRA
-  INSUMOS
-  TRANSPORTE
-  MANTENIMIENTO
-  SERVICIOS
-  OTRO
-}
-
-// Modelo de Cosecha
-model Harvest {
-  id           String   @id @default(cuid())
-  lotId        String
-  harvestDate  DateTime
-  quantityKg   Float
-  qualityGrade String?
-  harvestedBy  String
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relaciones
-  lot           Lot         @relation(fields: [lotId], references: [id])
-  harvestedByUser User      @relation(fields: [harvestedBy], references: [id])
-  microlots     Microlot[]
-
-  @@map("harvests")
-}
-
-// Modelo de Procesamiento
-model Processing {
-  id            String        @id @default(cuid())
-  microlotId    String
-  processType   ProcessType
-  startDate     DateTime
-  endDate       DateTime?
-  processedBy   String
-  temperature   Float?
-  humidity      Float?
-  notes         String?
-  qualityScore  Float?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  // Relaciones
-  microlot      Microlot @relation(fields: [microlotId], references: [id])
-  processedByUser User   @relation(fields: [processedBy], references: [id])
-
-  @@map("processing")
-}
-
-enum ProcessType {
-  DESPULPADO
-  FERMENTACION
-  LAVADO
-  SECADO
-  TRILLADO
-  TOSTADO
-}
-
-// Modelo de Microlote (para trazabilidad)
-model Microlot {
-  id          String   @id @default(cuid())
-  code        String   @unique // código QR único
-  lotId       String
-  harvestId   String
-  quantityKg  Float
-  processDate DateTime
-  qualityGrade String?
-  certifications String? // JSON con certificaciones
-  status      MicrolotStatus @default(COSECHADO)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relaciones
-  lot        Lot          @relation(fields: [lotId], references: [id])
-  harvest    Harvest      @relation(fields: [harvestId], references: [id])
-  processing Processing[]
-  qualityControls QualityControl[]
-  traceabilityEvents TraceabilityEvent[]
-  certificationRecords CertificationRecord[]
-  generatedDocuments GeneratedDocument[]
-
-  @@map("microlots")
-}
-
-enum MicrolotStatus {
-  COSECHADO
-  EN_BENEFICIO
-  SECANDO
-  ALMACENADO
-  LISTO_EXPORTACION
-  EXPORTADO
-}
-
-// Modelo de Control de Calidad
-model QualityControl {
-  id            String   @id @default(cuid())
-  microlotId    String
-  testType      QualityTestType
-  testDate      DateTime
-  testedBy      String
+  // No strict relation to support multiple user tables (CoffeeGrower, AdminUser) without polymorphism complexity
   
-  // Análisis físico
-  moisture      Float?   // humedad %
-  density       Float?   // densidad g/cm³
-  defects       Float?   // defectos %
-  screenSize    String?  // tamaño de grano
-  
-  // Análisis sensorial
-  aroma         Float?   // 1-10
-  acidity       Float?   // 1-10
-  body          Float?   // 1-10
-  flavor        Float?   // 1-10
-  scaScore      Float?   // puntaje SCA total
-  
-  // Otros
-  notes         String?
-  photoUrls     String?  // JSON array de URLs de fotos
-  passed        Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relaciones
-  microlot      Microlot @relation(fields: [microlotId], references: [id])
-  tester        User     @relation(fields: [testedBy], references: [id])
-
-  @@map("quality_controls")
-}
-
-enum QualityTestType {
-  FISICO
-  SENSORIAL
-  COMPLETO
-}
-
-// Modelo de Eventos de Trazabilidad (Blockchain simulado)
-model TraceabilityEvent {
-  id            String   @id @default(cuid())
-  microlotId    String
-  eventType     TraceabilityEventType
-  eventDate     DateTime
-  description   String
-  location      String?
-  responsibleBy String
-  previousHash  String?  // hash del evento anterior
-  currentHash   String   @unique // hash único del evento
-  blockNumber   Int
-  metadata      String?  // JSON con datos adicionales
-  createdAt     DateTime @default(now())
-
-  // Relaciones
-  microlot      Microlot @relation(fields: [microlotId], references: [id])
-  responsible   User     @relation(fields: [responsibleBy], references: [id])
-
-  @@map("traceability_events")
-}
-
-enum TraceabilityEventType {
-  COSECHA
-  INICIO_BENEFICIO
-  FIN_BENEFICIO
-  INICIO_SECADO
-  FIN_SECADO
-  ALMACENAMIENTO
-  CONTROL_CALIDAD
-  CERTIFICACION
-  PREPARACION_EXPORTACION
-  EXPORTACION
-}
-
-// Modelo de Certificaciones
-model CertificationRecord {
-  id              String   @id @default(cuid())
-  microlotId      String
-  certificationType CertificationType
-  certificationBody String  // entidad certificadora
-  certificateNumber String
-  issueDate       DateTime
-  expiryDate      DateTime
-  status          CertificationStatus @default(ACTIVA)
-  documentUrl     String?  // URL del documento de certificación
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relaciones
-  microlot        Microlot @relation(fields: [microlotId], references: [id])
-
-  @@map("certification_records")
-}
-
-enum CertificationType {
-  ORGANICO
-  FAIR_TRADE
-  RAINFOREST_ALLIANCE
-  UTZ
-  SPECIALTY
-  BIRD_FRIENDLY
-  OTRO
-}
-
-enum CertificationStatus {
-  ACTIVA
-  EXPIRADA
-  SUSPENDIDA
-  REVOCADA
-}
-
-// Modelo de Documentos Generados
-model GeneratedDocument {
-  id            String   @id @default(cuid())
-  microlotId    String?
-  documentType  DocumentType
-  fileName      String
-  fileUrl       String
-  generatedBy   String
-  generatedAt   DateTime @default(now())
-  metadata      String?  // JSON con metadatos del documento
-
-  // Relaciones
-  microlot      Microlot? @relation(fields: [microlotId], references: [id])
-  generator     User      @relation(fields: [generatedBy], references: [id])
-
-  @@map("generated_documents")
-}
-
-enum DocumentType {
-  CERTIFICADO_ORIGEN
-  FICHA_TECNICA
-  REPORTE_CALIDAD
-  FACTURA_EXPORTACION
-  MANIFIESTO_CARGA
-  CERTIFICADO_FITOSANITARIO
-}
-
-// Modelo de Trabajadores de la Finca
-model FarmWorker {
-  id          String   @id @default(cuid())
-  farmId      String
-  name        String
-  role        String   @default("RECOLECTOR") // RECOLECTOR, ENCARGADO, GENERAL
-  phone       String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relaciones
-  farm        Farm               @relation(fields: [farmId], references: [id])
-  collections CoffeeCollection[]
-  assignedTasks AgriculturalTask[]
-
-  @@map("farm_workers")
-}
-
-// Modelo de Recolección de Café (Diaria/Por trabajador)
-model CoffeeCollection {
-  id             String   @id @default(cuid())
-  workerId       String
-  lotId          String
-  quantityKg     Float
-  collectionDate DateTime
-  method         String   @default("MANUAL") // MANUAL, BASCULA
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relaciones
-  worker      FarmWorker @relation(fields: [workerId], references: [id])
-  lot         Lot        @relation(fields: [lotId], references: [id])
-
-  @@map("coffee_collections")
+  @@map("notifications")
 }

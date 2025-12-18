@@ -46,7 +46,7 @@ export default function CreateMicrolotModal({ isOpen, onClose, onSuccess }: Crea
   const [harvests, setHarvests] = useState<Harvest[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     lotId: '',
     harvestId: '',
@@ -66,7 +66,7 @@ export default function CreateMicrolotModal({ isOpen, onClose, onSuccess }: Crea
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // Obtener datos de la base de datos offline
       const [lotsFromDB, harvestsFromDB] = await Promise.all([
         offlineDB.lots?.toArray?.() || [],
@@ -103,7 +103,7 @@ export default function CreateMicrolotModal({ isOpen, onClose, onSuccess }: Crea
           }
         };
       });
-      
+
       setLots(formattedLots);
       setHarvests(formattedHarvests);
     } catch (error) {
@@ -137,7 +137,7 @@ export default function CreateMicrolotModal({ isOpen, onClose, onSuccess }: Crea
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -157,7 +157,7 @@ export default function CreateMicrolotModal({ isOpen, onClose, onSuccess }: Crea
       // Generar código único para el microlote
       const microlotCode = `ML-${Date.now()}-${selectedLot.name.substring(0, 3).toUpperCase()}`;
 
-      // Crear registro de microlote (simulado - en una implementación real se guardaría en una tabla específica)
+      // Crear registro de microlote REAL
       const microlotData = {
         code: microlotCode,
         lotId: parseInt(formData.lotId),
@@ -165,13 +165,29 @@ export default function CreateMicrolotModal({ isOpen, onClose, onSuccess }: Crea
         quantityKg: parseFloat(formData.quantityKg),
         qualityGrade: formData.qualityGrade || 'A',
         certifications: formData.certifications,
-        status: 'HARVEST',
-        createdAt: new Date().toISOString()
+        status: 'HARVEST' as const,
+        createdAt: new Date().toISOString(),
+        pendingSync: true,
+        action: 'create' as const
       };
 
-      // Simular guardado exitoso
-      console.log('Microlote creado:', microlotData);
-      
+      await offlineDB.microlots.add(microlotData);
+
+      // Crear evento inicial de Trazabilidad
+      await offlineDB.traceabilityEvents.add({
+        microlotId: microlotCode, // Usamos el codigo como ID lógico por ahora, o el ID autogenerado si pudieramos recuperarlo facilmente. 
+        // Pero offlineDB.add devuelve el ID. Vamos a usar ese.
+        stage: 'COSECHA',
+        timestamp: new Date().toISOString(),
+        description: `Microlote creado a partir de cosecha de ${selectedLot.name}`,
+        data: {
+          origin: 'App Movil',
+          initialQuantity: microlotData.quantityKg
+        },
+        pendingSync: true,
+        action: 'create'
+      });
+
       toast.success(`Microlote ${microlotCode} creado exitosamente`);
       onSuccess();
       handleClose();
@@ -196,7 +212,7 @@ export default function CreateMicrolotModal({ isOpen, onClose, onSuccess }: Crea
   };
 
   const selectedLot = lots.find(lot => lot.id === formData.lotId);
-      const filteredHarvests = harvests.filter(harvest => String(harvest.lot.id) === String(formData.lotId));
+  const filteredHarvests = harvests.filter(harvest => String(harvest.lot.id) === String(formData.lotId));
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
@@ -317,11 +333,18 @@ export default function CreateMicrolotModal({ isOpen, onClose, onSuccess }: Crea
                   <SelectValue placeholder="Selecciona el grado de calidad" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SUPREMO">Supremo</SelectItem>
-                  <SelectItem value="EXCELSO">Excelso</SelectItem>
-                  <SelectItem value="UGQ">UGQ (Usual Good Quality)</SelectItem>
-                  <SelectItem value="SPECIALTY">Specialty</SelectItem>
-                  <SelectItem value="PREMIUM">Premium</SelectItem>
+                  {[
+                    { value: 'SUPREMO', label: 'Supremo (Malla 17/18)' },
+                    { value: 'EXCELSO', label: 'Excelso (Malla 14-16)' },
+                    { value: 'UGQ', label: 'UGQ (Usual Good Quality)' },
+                    { value: 'SPECIALTY', label: 'Especial (Puntaje 80+)' },
+                    { value: 'PREMIUM', label: 'Premium' },
+                    { value: 'PASILLA', label: 'Pasilla / Consumo' }
+                  ].map((grade) => (
+                    <SelectItem key={grade.value} value={grade.value}>
+                      {grade.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

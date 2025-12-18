@@ -1,5 +1,6 @@
 export interface FarmWorker {
-    id: string;
+    id: string | number;
+    serverId?: string;
     farmId: string;
     name: string;
     role: string;

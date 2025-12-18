@@ -564,8 +564,9 @@ export interface CostBreakdown {
 export interface ROIAnalysis {
   roi: number; // Porcentaje de retorno de inversión
   paybackPeriod: number; // Meses para recuperar inversión
-  npv: number; // Valor presente neto
-  irr: number; // Tasa interna de retorno
+  netPresentValue: number; // Valor presente neto
+  irr?: number; // Tasa interna de retorno
+  profitabilityIndex?: number;
   riskLevel: 'low' | 'medium' | 'high';
 }
 

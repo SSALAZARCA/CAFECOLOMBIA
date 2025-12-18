@@ -31,16 +31,10 @@ interface RefreshTokenResponse {
 // CONFIGURACIÓN
 // =====================================================
 
-<<<<<<< HEAD
-// Forzar IPv4 directo y evitar proxy /api en desarrollo
-const API_BASE_URL = (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.startsWith('http'))
-  ? import.meta.env.VITE_API_URL.replace(/\/$/, '')
-  : `${window.location.origin.replace(/\/$/, '')}/api`;
-=======
-// Usar variable de entorno VITE si está definida; en producción usar el dominio actual
-const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL)
-  || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : 'http://localhost:3001');
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
+// Usar Proxy de Vite en desarrollo para evitar CORS
+const API_BASE_URL = import.meta.env.DEV
+  ? '/api'
+  : (import.meta.env.VITE_API_URL || '/api');
 
 const DEFAULT_TIMEOUT = 30000; // 30 segundos
 
@@ -85,7 +79,7 @@ class TokenManager {
     }
 
     this.refreshPromise = this.performRefresh();
-    
+
     try {
       const newToken = await this.refreshPromise;
       this.refreshPromise = null;
@@ -98,7 +92,7 @@ class TokenManager {
 
   private async performRefresh(): Promise<string> {
     const refreshToken = localStorage.getItem('admin_refresh_token');
-    
+
     if (!refreshToken) {
       throw new Error('No refresh token available');
     }
@@ -120,7 +114,7 @@ class TokenManager {
 
     const data: RefreshTokenResponse = await response.json();
     this.setToken(data.token);
-    
+
     return data.token;
   }
 
@@ -158,7 +152,7 @@ class AdminHttpClient {
   // =====================================================
 
   async request<T = any>(
-    endpoint: string, 
+    endpoint: string,
     config: RequestConfig = {}
   ): Promise<T> {
     const {
@@ -234,7 +228,7 @@ class AdminHttpClient {
 
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof Error && error.name === 'AbortError') {
         const timeoutError = new Error('Request timeout');
         this.handleError(timeoutError, skipErrorToast);
@@ -290,8 +284,8 @@ class AdminHttpClient {
   // =====================================================
 
   async upload<T = any>(
-    endpoint: string, 
-    file: File | FormData, 
+    endpoint: string,
+    file: File | FormData,
     config?: Omit<RequestConfig, 'headers'>
   ): Promise<T> {
     const formData = file instanceof FormData ? file : new FormData();
@@ -301,7 +295,7 @@ class AdminHttpClient {
 
     const token = await this.getValidToken();
     const headers: HeadersInit = {};
-    
+
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -320,7 +314,7 @@ class AdminHttpClient {
 
   private async getValidToken(): Promise<string | null> {
     let token = this.tokenManager.getToken();
-    
+
     if (!token) {
       return null;
     }
@@ -340,7 +334,7 @@ class AdminHttpClient {
 
   private async handleResponse<T>(response: Response, skipErrorToast: boolean): Promise<T> {
     let data: any;
-    
+
     try {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -365,7 +359,7 @@ class AdminHttpClient {
         this.tokenManager.clearToken();
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
-          }
+        }
       }
 
       throw apiError;
@@ -379,7 +373,7 @@ class AdminHttpClient {
 
     if (!skipErrorToast) {
       let message = 'Error de conexión';
-      
+
       if (error instanceof Error) {
         message = error.message;
       } else if (typeof error === 'string') {

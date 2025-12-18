@@ -1,9 +1,9 @@
 import Dexie, { Table } from 'dexie';
-import type { 
-  AIAnalysisResult, 
-  PhytosanitaryAnalysis, 
-  PredictiveAnalysis, 
-  RAGQuery, 
+import type {
+  AIAnalysisResult,
+  PhytosanitaryAnalysis,
+  PredictiveAnalysis,
+  RAGQuery,
   OptimizationAnalysis,
   AIProcessingQueue,
   AIAgentConfig,
@@ -42,6 +42,11 @@ export interface OfflineInventory {
   id?: number;
   serverId?: string;
   inputId: string;
+  name?: string;
+  type?: string;
+  brand?: string;
+  activeIngredient?: string;
+  concentration?: string;
   quantity: number;
   unit: string;
   expirationDate?: string;
@@ -51,6 +56,8 @@ export interface OfflineInventory {
   supplier?: string;
   purchaseDate?: string;
   batchNumber?: string;
+  gracePeriodDays?: number;
+  reentryPeriod?: number;
   createdAt?: string;
   updatedAt?: string;
   lastSync?: Date;
@@ -125,6 +132,38 @@ export interface OfflineExpense {
   date: string;
   lotId?: string;
   receipt?: string;
+  lastSync?: Date;
+  pendingSync?: boolean;
+  action?: 'create' | 'update' | 'delete';
+}
+
+export interface OfflineSale {
+  id?: number;
+  serverId?: string;
+  date: string;
+  buyer: string; // 'Federación', 'Cooperativa', 'Particular', etc.
+  quantity: number; // en cargas/kilos
+  unit: string; // 'kg', 'carga'
+  pricePerUnit: number;
+  totalAmount: number;
+  coffeeType: string; // 'Pergamino Seco', 'Pasilla', etc.
+  qualityScore?: number; // Factor de rendimiento o puntaje
+  notes?: string;
+  lastSync?: Date;
+  pendingSync?: boolean;
+  action?: 'create' | 'update' | 'delete';
+}
+
+export interface OfflineMarketPrice {
+  id?: number;
+  serverId?: string;
+  date: string;
+  source: string; // 'Cenicafé', 'Bolsa NY', 'Cooperativa Local'
+  price: number; // Precio base
+  currency: string; // 'COP', 'USD'
+  unit: string; // 'carga', 'lb', 'kg'
+  coffeeType: string;
+  notes?: string;
   lastSync?: Date;
   pendingSync?: boolean;
   action?: 'create' | 'update' | 'delete';
@@ -362,33 +401,146 @@ export interface OfflineNotificationStats {
   sessionId?: string;
 }
 
+// Interface for Farm
+export interface OfflineFarm {
+  id?: number;
+  serverId?: string;
+  name: string;
+  location: string;
+  size?: number;
+  altitude?: number;
+  coffeeGrowerId?: string;
+  lastSync?: Date;
+  pendingSync?: boolean;
+  action?: 'create' | 'update' | 'delete';
+}
+
+export interface OfflineTraceabilityEvent {
+  id?: number;
+  serverId?: string;
+  microlotId: string;
+  stage: 'COSECHA' | 'DESPULPADO' | 'FERMENTACION' | 'LAVADO' | 'SECADO' | 'TRILLA' | 'TOSTION' | 'CATA' | 'EMPAQUE';
+  timestamp: string;
+  description: string;
+  data?: {
+    avgTemp?: number;
+    brixDegrees?: number;
+    humidity?: number;
+    weightAfter?: number;
+    operator?: string;
+    processingType?: string;
+    fermentationHours?: string;
+    dryingMethod?: string;
+    dryingDays?: string;
+    finalMoisture?: string;
+    storageLocation?: string;
+    storageConditions?: string;
+    notes?: string;
+  };
+  photos?: string[];
+  lastSync?: Date;
+  pendingSync?: boolean;
+  action?: 'create' | 'update' | 'delete';
+}
+
+export interface OfflineMicrolot {
+  id?: number;
+  serverId?: string;
+  code: string;
+  lotId: number;
+  harvestId: number;
+  quantityKg: number;
+  qualityGrade: string;
+  status: 'HARVEST' | 'PROCESSING' | 'DRYING' | 'STORAGE' | 'MILLING' | 'EXPORT_READY' | 'EXPORTED';
+  certifications?: string;
+  createdAt: string;
+  lastSync?: Date;
+  pendingSync?: boolean;
+  action?: 'create' | 'update' | 'delete';
+}
+
+// Interfaces para Trabajadores
+export interface OfflineFarmWorker {
+  id?: number;
+  serverId?: string;
+  farmId: string;
+  name: string;
+  role: string;
+  phone?: string;
+  isActive: boolean;
+  createdAt?: string;
+  lastSync?: Date;
+  pendingSync?: boolean;
+  action?: 'create' | 'update' | 'delete';
+}
+
+export interface OfflineCoffeeCollection {
+  id?: number;
+  serverId?: string;
+  workerId: number; // Local ID to link with OfflineFarmWorker
+  lotId: number;    // Local ID to link with OfflineLot
+  quantityKg: number;
+  collectionDate: string;
+  method: string;
+  notes?: string;
+  lastSync?: Date;
+  pendingSync?: boolean;
+  action?: 'create' | 'update' | 'delete';
+}
+
+export interface OfflineWorkerTask {
+  id?: number;
+  serverId?: string;
+  workerId: number; // Local ID
+  type: string;
+  description: string;
+  status: string;
+  dueDate?: string;
+  completedAt?: string;
+  lastSync?: Date;
+  pendingSync?: boolean;
+  action?: 'create' | 'update' | 'delete';
+}
+
 // Clase principal de la base de datos offline
 export class OfflineDatabase extends Dexie {
   // Tablas de datos principales
+  farms!: Table<OfflineFarm>;
   lots!: Table<OfflineLot>;
   inventory!: Table<OfflineInventory>;
   tasks!: Table<OfflineTask>;
   pestMonitoring!: Table<OfflinePestMonitoring>;
   harvests!: Table<OfflineHarvest>;
+  microlots!: Table<OfflineMicrolot>;
   expenses!: Table<OfflineExpense>;
-  
+  traceabilityEvents!: Table<OfflineTraceabilityEvent>;
+
+  // Tablas de Trabajadores
+  workers!: Table<OfflineFarmWorker>;
+  collections!: Table<OfflineCoffeeCollection>;
+  workerTasks!: Table<OfflineWorkerTask>;
+
   // Tablas de IA existentes
   aiImages!: Table<OfflineAIImage>;
   aiAnalysis!: Table<OfflineAIAnalysis>;
   aiNotifications!: Table<OfflineAINotification>;
   aiConfigs!: Table<OfflineAIConfig>;
-  
+
   // Nuevas tablas de IA
   aiMetrics!: Table<OfflineAIMetrics>;
   aiSessions!: Table<OfflineAISession>;
   aiModelCache!: Table<OfflineAIModelCache>;
   aiErrorLogs!: Table<OfflineAIErrorLog>;
   aiUserPreferences!: Table<OfflineAIUserPreferences>;
-  
+
   // Tablas de notificaciones push
   pushSubscriptions!: Table<OfflinePushSubscription>;
   notificationStats!: Table<OfflineNotificationStats>;
-  
+
+  // Nuevas tablas de Mercado
+  marketPrices!: Table<OfflineMarketPrice>;
+  saleTransactions!: Table<OfflineSale>;
+
   // Tablas de sistema
   syncQueue!: Table<SyncQueue>;
   settings!: Table<AppSettings>;
@@ -396,7 +548,7 @@ export class OfflineDatabase extends Dexie {
 
   constructor() {
     super('CafeColombiaOfflineDB');
-    
+
     // Versión 1: Esquema original
     this.version(1).stores({
       lots: '++id, serverId, name, farmId, variety, status, lastSync, pendingSync',
@@ -410,26 +562,11 @@ export class OfflineDatabase extends Dexie {
       cacheMetadata: '++id, url, timestamp, type'
     });
 
-    // Versión 2: Agregar tablas de IA básicas
-    this.version(2).stores({
-      lots: '++id, serverId, name, farmId, variety, status, lastSync, pendingSync',
-      inventory: '++id, serverId, inputId, quantity, location, lastSync, pendingSync',
-      tasks: '++id, serverId, title, type, status, dueDate, lotId, lastSync, pendingSync',
-      pestMonitoring: '++id, serverId, lotId, pestType, severity, observationDate, lastSync, pendingSync',
-      harvests: '++id, serverId, lotId, date, quantity, quality, lastSync, pendingSync',
-      expenses: '++id, serverId, description, category, date, lotId, lastSync, pendingSync',
-      syncQueue: '++id, table, recordId, action, timestamp, retries',
-      settings: '++id, key, lastUpdated',
-      cacheMetadata: '++id, url, timestamp, type',
-      // Tablas de IA básicas
-      aiImages: '++id, serverId, filename, analysisStatus, syncStatus, lastSync, pendingSync',
-      aiAnalysis: '++id, serverId, agentType, status, priority, createdAt, processedAt, syncStatus, lastSync, pendingSync',
-      aiNotifications: '++id, serverId, agentType, severity, priority, isRead, isDismissed, createdAt, expiresAt, syncStatus, lastSync, pendingSync',
-      aiConfigs: '++id, agentType, isActive, lastUpdated, version, syncStatus'
-    });
+    // ... versions 2-7 skipped for brevity, consolidating into Version 8 which includes everything
 
-    // Versión 3: Extender con nuevas tablas de IA avanzadas
-    this.version(3).stores({
+    // Versión 8: Full schema con Workers
+    this.version(8).stores({
+      farms: '++id, serverId, name, location, lastSync, pendingSync',
       lots: '++id, serverId, name, farmId, variety, status, lastSync, pendingSync',
       inventory: '++id, serverId, inputId, quantity, location, lastSync, pendingSync',
       tasks: '++id, serverId, title, type, status, dueDate, lotId, lastSync, pendingSync',
@@ -439,44 +576,67 @@ export class OfflineDatabase extends Dexie {
       syncQueue: '++id, table, recordId, action, timestamp, retries',
       settings: '++id, key, lastUpdated',
       cacheMetadata: '++id, url, timestamp, type',
-      // Tablas de IA básicas (actualizadas)
+      // IA Tables
       aiImages: '++id, serverId, filename, analysisStatus, syncStatus, uploadProgress, lastSync, pendingSync',
       aiAnalysis: '++id, serverId, agentType, status, priority, createdAt, processedAt, confidence, syncStatus, relatedImageId, lastSync, pendingSync',
       aiNotifications: '++id, serverId, agentType, severity, priority, isRead, isDismissed, actionRequired, createdAt, readAt, expiresAt, syncStatus, lastSync, pendingSync',
       aiConfigs: '++id, agentType, isActive, lastUpdated, version, syncStatus',
-      // Nuevas tablas de IA avanzadas
-      aiMetrics: '++id, agentType, date, totalAnalyses, successfulAnalyses, failedAnalyses, lastUpdated',
-      aiSessions: '++id, serverId, sessionId, agentType, startTime, endTime, status, totalItems, processedItems, syncStatus, lastSync, pendingSync',
-      aiModelCache: '++id, agentType, modelId, modelVersion, modelSize, downloadedAt, lastUsed, isActive, expiresAt',
-      aiErrorLogs: '++id, agentType, errorType, severity, timestamp, resolved, resolvedAt, relatedAnalysisId, relatedImageId',
-      aiUserPreferences: '++id, userId, agentType, lastUpdated'
-    });
-
-    // Versión 4: Agregar soporte para notificaciones push
-    this.version(4).stores({
-      lots: '++id, serverId, name, farmId, variety, status, lastSync, pendingSync',
-      inventory: '++id, serverId, inputId, quantity, location, lastSync, pendingSync',
-      tasks: '++id, serverId, title, type, status, dueDate, lotId, lastSync, pendingSync',
-      pestMonitoring: '++id, serverId, lotId, pestType, severity, observationDate, lastSync, pendingSync',
-      harvests: '++id, serverId, lotId, date, quantity, quality, lastSync, pendingSync',
-      expenses: '++id, serverId, description, category, date, lotId, lastSync, pendingSync',
-      syncQueue: '++id, table, recordId, action, timestamp, retries',
-      settings: '++id, key, lastUpdated',
-      cacheMetadata: '++id, url, timestamp, type',
-      // Tablas de IA básicas (actualizadas)
-      aiImages: '++id, serverId, filename, analysisStatus, syncStatus, uploadProgress, lastSync, pendingSync',
-      aiAnalysis: '++id, serverId, agentType, status, priority, createdAt, processedAt, confidence, syncStatus, relatedImageId, lastSync, pendingSync',
-      aiNotifications: '++id, serverId, agentType, severity, priority, isRead, isDismissed, actionRequired, createdAt, readAt, expiresAt, syncStatus, lastSync, pendingSync',
-      aiConfigs: '++id, agentType, isActive, lastUpdated, version, syncStatus',
-      // Nuevas tablas de IA avanzadas
       aiMetrics: '++id, agentType, date, totalAnalyses, successfulAnalyses, failedAnalyses, lastUpdated',
       aiSessions: '++id, serverId, sessionId, agentType, startTime, endTime, status, totalItems, processedItems, syncStatus, lastSync, pendingSync',
       aiModelCache: '++id, agentType, modelId, modelVersion, modelSize, downloadedAt, lastUsed, isActive, expiresAt',
       aiErrorLogs: '++id, agentType, errorType, severity, timestamp, resolved, resolvedAt, relatedAnalysisId, relatedImageId',
       aiUserPreferences: '++id, userId, agentType, lastUpdated',
-      // Tablas de notificaciones push
+      // Push Tables
       pushSubscriptions: '++id, token, endpoint, deviceId, subscribedAt, lastActive, isActive, lastSync',
-      notificationStats: '++id, type, agentType, timestamp, deviceId, sessionId'
+      notificationStats: '++id, type, agentType, timestamp, deviceId, sessionId',
+      // Mercado Tables
+      marketPrices: '++id, serverId, date, source, region, lastSync, pendingSync',
+      saleTransactions: '++id, serverId, date, buyer, lastSync, pendingSync',
+      // Trazabilidad Tables
+      microlots: '++id, serverId, code, lotId, lastSync, pendingSync',
+      traceabilityEvents: '++id, serverId, microlotId, stage, timestamp, lastSync, pendingSync',
+      // Workers Tables (New)
+      workers: '++id, serverId, farmId, name, role, isActive, lastSync, pendingSync',
+      collections: '++id, serverId, workerId, lotId, collectionDate, lastSync, pendingSync',
+      workerTasks: '++id, serverId, workerId, status, dueDate, lastSync, pendingSync'
+    });
+
+    // Versión 9: Inventory Detailed Schema (Refactor Insumos)
+    this.version(9).stores({
+      farms: '++id, serverId, name, location, lastSync, pendingSync',
+      lots: '++id, serverId, name, farmId, variety, status, lastSync, pendingSync',
+      // Inventory expanded with name, type, brand for easy offline access and sync
+      inventory: '++id, serverId, inputId, name, type, brand, quantity, location, lastSync, pendingSync',
+      tasks: '++id, serverId, title, type, status, dueDate, lotId, lastSync, pendingSync',
+      pestMonitoring: '++id, serverId, lotId, pestType, severity, observationDate, lastSync, pendingSync',
+      harvests: '++id, serverId, lotId, date, quantity, quality, lastSync, pendingSync',
+      expenses: '++id, serverId, description, category, date, lotId, lastSync, pendingSync',
+      syncQueue: '++id, table, recordId, action, timestamp, retries',
+      settings: '++id, key, lastUpdated',
+      cacheMetadata: '++id, url, timestamp, type',
+      // IA Tables
+      aiImages: '++id, serverId, filename, analysisStatus, syncStatus, uploadProgress, lastSync, pendingSync',
+      aiAnalysis: '++id, serverId, agentType, status, priority, createdAt, processedAt, confidence, syncStatus, relatedImageId, lastSync, pendingSync',
+      aiNotifications: '++id, serverId, agentType, severity, priority, isRead, isDismissed, actionRequired, createdAt, readAt, expiresAt, syncStatus, lastSync, pendingSync',
+      aiConfigs: '++id, agentType, isActive, lastUpdated, version, syncStatus',
+      aiMetrics: '++id, agentType, date, totalAnalyses, successfulAnalyses, failedAnalyses, lastUpdated',
+      aiSessions: '++id, serverId, sessionId, agentType, startTime, endTime, status, totalItems, processedItems, syncStatus, lastSync, pendingSync',
+      aiModelCache: '++id, agentType, modelId, modelVersion, modelSize, downloadedAt, lastUsed, isActive, expiresAt',
+      aiErrorLogs: '++id, agentType, errorType, severity, timestamp, resolved, resolvedAt, relatedAnalysisId, relatedImageId',
+      aiUserPreferences: '++id, userId, agentType, lastUpdated',
+      // Push Tables
+      pushSubscriptions: '++id, token, endpoint, deviceId, subscribedAt, lastActive, isActive, lastSync',
+      notificationStats: '++id, type, agentType, timestamp, deviceId, sessionId',
+      // Mercado Tables
+      marketPrices: '++id, serverId, date, source, region, lastSync, pendingSync',
+      saleTransactions: '++id, serverId, date, buyer, lastSync, pendingSync',
+      // Trazabilidad Tables
+      microlots: '++id, serverId, code, lotId, lastSync, pendingSync',
+      traceabilityEvents: '++id, serverId, microlotId, stage, timestamp, lastSync, pendingSync',
+      // Workers Tables
+      workers: '++id, serverId, farmId, name, role, isActive, lastSync, pendingSync',
+      collections: '++id, serverId, workerId, lotId, collectionDate, lastSync, pendingSync',
+      workerTasks: '++id, serverId, workerId, status, dueDate, lastSync, pendingSync'
     });
 
     // Hooks para manejar cambios automáticamente
@@ -521,6 +681,19 @@ export class OfflineDatabase extends Dexie {
     this.aiSessions.hook('creating', this.addSyncMetadata);
     this.aiSessions.hook('updating', this.updateSyncMetadata);
     this.aiSessions.hook('deleting', this.markForDeletion);
+
+    // Hooks para Workers
+    this.workers.hook('creating', this.addSyncMetadata);
+    this.workers.hook('updating', this.updateSyncMetadata);
+    this.workers.hook('deleting', this.markForDeletion);
+
+    this.collections.hook('creating', this.addSyncMetadata);
+    this.collections.hook('updating', this.updateSyncMetadata);
+    this.collections.hook('deleting', this.markForDeletion);
+
+    this.workerTasks.hook('creating', this.addSyncMetadata);
+    this.workerTasks.hook('updating', this.updateSyncMetadata);
+    this.workerTasks.hook('deleting', this.markForDeletion);
 
     // Hooks especiales para métricas (no necesitan sincronización)
     this.aiMetrics.hook('creating', (primKey: any, obj: any, trans: any) => {
@@ -649,7 +822,7 @@ export class OfflineDatabase extends Dexie {
   async clearOldCache(maxAge: number = 7 * 24 * 60 * 60 * 1000) { // 7 días por defecto
     const cutoffDate = new Date(Date.now() - maxAge);
     const oldItems = await this.cacheMetadata.where('timestamp').below(cutoffDate).toArray();
-    
+
     // Eliminar del cache del navegador
     if ('caches' in window) {
       const cache = await caches.open('dynamic-v1.0.0');
@@ -657,7 +830,7 @@ export class OfflineDatabase extends Dexie {
         await cache.delete(item.url);
       }
     }
-    
+
     // Eliminar metadatos
     return await this.cacheMetadata.where('timestamp').below(cutoffDate).delete();
   }
@@ -665,7 +838,7 @@ export class OfflineDatabase extends Dexie {
   // Métodos de búsqueda y filtrado
   async searchLots(query: string) {
     return await this.lots
-      .filter(lot => 
+      .filter(lot =>
         lot.name.toLowerCase().includes(query.toLowerCase()) ||
         lot.variety.toLowerCase().includes(query.toLowerCase())
       )
@@ -683,7 +856,7 @@ export class OfflineDatabase extends Dexie {
   async getRecentHarvests(days: number = 30) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
-    
+
     return await this.harvests
       .where('date')
       .above(cutoffDate.toISOString().split('T')[0])
@@ -726,7 +899,7 @@ export class OfflineDatabase extends Dexie {
   // Método para limpiar datos antiguos
   async cleanupOldData(maxAge: number = 90 * 24 * 60 * 60 * 1000) { // 90 días
     const cutoffDate = new Date(Date.now() - maxAge);
-    
+
     const deletedCounts = await Promise.all([
       this.harvests.where('lastSync').below(cutoffDate).delete(),
       this.expenses.where('lastSync').below(cutoffDate).delete(),
@@ -813,9 +986,9 @@ export class OfflineDatabase extends Dexie {
 
   // Gestión de notificaciones de IA
   async addAINotification(
-    agentType: AgentType, 
-    title: string, 
-    message: string, 
+    agentType: AgentType,
+    title: string,
+    message: string,
     severity: 'info' | 'warning' | 'error' | 'success',
     data?: any,
     expiresAt?: Date
@@ -825,6 +998,7 @@ export class OfflineDatabase extends Dexie {
       title,
       message,
       severity,
+      priority: 'medium',
       data,
       isRead: false,
       createdAt: new Date(),
@@ -857,7 +1031,7 @@ export class OfflineDatabase extends Dexie {
   // Gestión de configuraciones de IA
   async setAIAgentConfig(agentType: AgentType, config: AIAgentConfig, version: string = '1.0.0') {
     const existing = await this.aiConfigs.where('agentType').equals(agentType).first();
-    
+
     if (existing) {
       return await this.aiConfigs.update(existing.id!, {
         config,
@@ -966,7 +1140,7 @@ export class OfflineDatabase extends Dexie {
   // Limpiar datos de IA antiguos
   async cleanupOldAIData(maxAge: number = 30 * 24 * 60 * 60 * 1000) { // 30 días
     const cutoffDate = new Date(Date.now() - maxAge);
-    
+
     const deletedCounts = await Promise.all([
       this.aiImages.where('lastSync').below(cutoffDate).delete(),
       this.aiAnalysis.where('lastSync').below(cutoffDate).delete(),
@@ -1077,7 +1251,7 @@ export class OfflineDatabase extends Dexie {
   // Gestión de sesiones de análisis
   async startAISession(agentType: AgentType, totalItems: number, metadata?: any): Promise<string> {
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     await this.aiSessions.add({
       sessionId,
       agentType,
@@ -1375,8 +1549,8 @@ export class OfflineDatabase extends Dexie {
     ]);
 
     const processingTimes = avgProcessingTime.filter(a => a.processingTime).map(a => a.processingTime!);
-    const averageProcessingTime = processingTimes.length > 0 
-      ? processingTimes.reduce((sum, time) => sum + time, 0) / processingTimes.length 
+    const averageProcessingTime = processingTimes.length > 0
+      ? processingTimes.reduce((sum, time) => sum + time, 0) / processingTimes.length
       : 0;
 
     const confidenceScores = avgProcessingTime.filter(a => a.confidence).map(a => a.confidence!);
@@ -1546,6 +1720,7 @@ export class OfflineDatabase extends Dexie {
 
 // Instancia global de la base de datos
 export const offlineDB = new OfflineDatabase();
+
 export async function ensureOfflineDBReady() {
   try {
     if (!offlineDB.isOpen()) {

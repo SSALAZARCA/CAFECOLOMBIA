@@ -40,7 +40,7 @@ interface AdminStore extends AdminState {
   enable2FA: () => Promise<string>; // Retorna QR code
   verify2FA: (code: string) => Promise<boolean>;
   disable2FA: (code: string) => Promise<boolean>;
-  
+
   // =====================================================
   // ACCIONES DE UI
   // =====================================================
@@ -48,7 +48,7 @@ interface AdminStore extends AdminState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
-  
+
   // =====================================================
   // ACCIONES DE USUARIOS
   // =====================================================
@@ -58,7 +58,7 @@ interface AdminStore extends AdminState {
   deleteUser: (id: string) => Promise<void>;
   toggleUserStatus: (id: string) => Promise<void>;
   exportUsers: (filters?: any) => Promise<string>; // Retorna URL de descarga
-  
+
   // =====================================================
   // ACCIONES DE CAFICULTORES
   // =====================================================
@@ -67,7 +67,7 @@ interface AdminStore extends AdminState {
   updateCoffeeGrower: (id: string, growerData: Partial<CoffeeGrower>) => Promise<CoffeeGrower>;
   deleteCoffeeGrower: (id: string) => Promise<void>;
   exportCoffeeGrowers: (filters?: any) => Promise<string>;
-  
+
   // =====================================================
   // ACCIONES DE FINCAS
   // =====================================================
@@ -76,7 +76,7 @@ interface AdminStore extends AdminState {
   updateFarm: (id: string, farmData: Partial<Farm>) => Promise<Farm>;
   deleteFarm: (id: string) => Promise<void>;
   exportFarms: (filters?: any) => Promise<string>;
-  
+
   // =====================================================
   // ACCIONES DE PLANES DE SUSCRIPCIÓN
   // =====================================================
@@ -85,7 +85,7 @@ interface AdminStore extends AdminState {
   updateSubscriptionPlan: (id: string, planData: Partial<SubscriptionPlan>) => Promise<SubscriptionPlan>;
   deleteSubscriptionPlan: (id: string) => Promise<void>;
   togglePlanStatus: (id: string) => Promise<void>;
-  
+
   // =====================================================
   // ACCIONES DE SUSCRIPCIONES
   // =====================================================
@@ -95,7 +95,7 @@ interface AdminStore extends AdminState {
   cancelSubscription: (id: string, reason?: string) => Promise<void>;
   renewSubscription: (id: string) => Promise<void>;
   exportSubscriptions: (filters?: any) => Promise<string>;
-  
+
   // =====================================================
   // ACCIONES DE PAGOS
   // =====================================================
@@ -104,13 +104,13 @@ interface AdminStore extends AdminState {
   updatePayment: (id: string, paymentData: Partial<Payment>) => Promise<Payment>;
   refundPayment: (id: string, amount?: number, reason?: string) => Promise<void>;
   exportPayments: (filters?: any) => Promise<string>;
-  
+
   // =====================================================
   // ACCIONES DE AUDITORÍA
   // =====================================================
   fetchAuditLogs: (params?: any) => Promise<void>;
   exportAuditLogs: (filters?: any) => Promise<string>;
-  
+
   // =====================================================
   // ACCIONES DE CONFIGURACIÓN
   // =====================================================
@@ -118,25 +118,25 @@ interface AdminStore extends AdminState {
   updateSystemConfig: (key: string, value: string) => Promise<void>;
   createSystemConfig: (configData: Partial<SystemConfig>) => Promise<SystemConfig>;
   deleteSystemConfig: (key: string) => Promise<void>;
-  
+
   // =====================================================
   // ACCIONES DE MÉTRICAS
   // =====================================================
   fetchDashboardMetrics: (dateRange?: { from: string; to: string }) => Promise<void>;
   refreshMetrics: () => Promise<void>;
-  
+
   // =====================================================
   // ACCIONES DE REPORTES
   // =====================================================
   generateReport: (type: string, filters?: any) => Promise<any>;
   exportReport: (reportId: string, format: 'csv' | 'pdf' | 'excel') => Promise<string>;
-  
+
   // =====================================================
   // ACCIONES DE PERMISOS
   // =====================================================
   checkPermission: (permission: AdminPermissionCheck) => boolean;
   hasRole: (role: string) => boolean;
-  
+
   // =====================================================
   // ACCIONES DE NOTIFICACIONES
   // =====================================================
@@ -145,7 +145,7 @@ interface AdminStore extends AdminState {
   removeNotification: (id: string) => void;
   markNotificationAsRead: (id: string) => void;
   clearNotifications: () => void;
-  
+
   // =====================================================
   // UTILIDADES
   // =====================================================
@@ -163,12 +163,12 @@ const initialState: AdminState = {
   isAuthenticated: false,
   currentAdmin: null,
   session: null,
-  
+
   // UI
   sidebarOpen: true,
   loading: false,
   error: null,
-  
+
   // Datos
   users: [],
   coffeeGrowers: [],
@@ -178,10 +178,10 @@ const initialState: AdminState = {
   payments: [],
   auditLogs: [],
   systemConfigs: [],
-  
+
   // Métricas
   dashboardMetrics: null,
-  
+
   // Paginación
   pagination: {}
 };
@@ -194,21 +194,21 @@ export const useAdminStore = create<AdminStore>()(
   persist(
     (set, get) => ({
       ...initialState,
-      
+
       // =====================================================
       // IMPLEMENTACIÓN DE AUTENTICACIÓN
       // =====================================================
-      
+
       login: async (email: string, password: string, twoFactorCode?: string) => {
         set({ loading: true, error: null });
-        
+
         try {
           console.log('🔐 DEBUG AdminStore - Iniciando login con:', { email, password: '***' });
-          
-          // Usar endpoint correcto del backend según server: /api/admin/auth/login
-          // El backend espera 'username' en el body
-          const data = await adminHttpClient.post('/api/admin/auth/login', {
-            username: email,
+
+          // Usar endpoint correcto del backend unificado: /api/auth/login
+          // El backend espera 'email' o 'username' en el body
+          const data = await adminHttpClient.post('/api/auth/login', {
+            email,
             password,
             twoFactorCode
           }, { skipAuth: true });
@@ -247,7 +247,7 @@ export const useAdminStore = create<AdminStore>()(
             permissions: user.permissions || permissions
           };
 
-          const validAdminRoles = ['super_admin', 'admin', 'moderator'];
+          const validAdminRoles = ['super_admin', 'admin', 'moderator', 'coffee_grower'];
           if (!validAdminRoles.includes(adminUser.role as string)) {
             set({ loading: false });
             throw new Error('invalid admin role');
@@ -281,19 +281,19 @@ export const useAdminStore = create<AdminStore>()(
           return true;
         } catch (error) {
           const message = (error as any)?.message || (error instanceof Error ? error.message : 'Error desconocido');
-          set({ 
+          set({
             error: message,
-            loading: false 
+            loading: false
           });
           toast.error(message);
           // Propagar error para que la UI maneje 2FA u otros casos
           throw error;
         }
       },
-      
+
       logout: async () => {
         const { session } = get();
-        
+
         if (session) {
           try {
             await adminHttpClient.post('/api/admin/auth/logout');
@@ -301,10 +301,10 @@ export const useAdminStore = create<AdminStore>()(
             console.error('Error al cerrar sesión:', error);
           }
         }
-        
+
         // Limpiar token del cliente HTTP
         adminHttpClient.clearAuthToken();
-        
+
         set({
           isAuthenticated: false,
           currentAdmin: null,
@@ -312,31 +312,21 @@ export const useAdminStore = create<AdminStore>()(
           error: null,
           loading: false
         });
-        
+
         toast.success('Sesión cerrada correctamente');
       },
-      
+
       refreshSession: async () => {
         const { session } = get();
         if (!session) return false;
-        
+
         try {
-<<<<<<< HEAD
-          const apiUrl = import.meta.env.VITE_API_URL || '/api';
-          const response = await fetch(`${apiUrl}/auth/admin/refresh`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${session.token}` }
-          });
-          
-          if (!response.ok) {
-=======
           // Usar endpoint correcto y enviar refresh_token
           const data = await adminHttpClient.post('/api/admin/auth/refresh', {
             refresh_token: session.refresh_token || session.token
           }, { skipAuth: true });
 
           if (!data || !data.success || !data.data?.token) {
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
             get().logout();
             return false;
           }
@@ -356,41 +346,29 @@ export const useAdminStore = create<AdminStore>()(
           return false;
         }
       },
-      
+
       enable2FA: async () => {
         const { session } = get();
         if (!session) throw new Error('No hay sesión activa');
-        
-<<<<<<< HEAD
-        const apiUrl = import.meta.env.VITE_API_URL || '/api';
-        const response = await fetch(`${apiUrl}/auth/admin/2fa/enable`, {
-          method: 'POST',
-=======
-        const data = await adminHttpClient.post('/admin/auth/2fa/enable', {} ,{
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
+
+        const data = await adminHttpClient.post('/api/admin/auth/2fa/enable', {}, {
           headers: { 'Authorization': `Bearer ${session.token}` }
         });
-        
+
         return data.qr_code || data.qrCode;
       },
-      
+
       verify2FA: async (code: string) => {
         const { session } = get();
         if (!session) throw new Error('No hay sesión activa');
-        
-<<<<<<< HEAD
-        const apiUrl = import.meta.env.VITE_API_URL || '/api';
-        const response = await fetch(`${apiUrl}/auth/admin/2fa/verify`, {
-          method: 'POST',
-=======
-        const data = await adminHttpClient.post('/admin/auth/2fa/verify', { code }, {
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
-          headers: { 
+
+        const data = await adminHttpClient.post('/api/admin/auth/2fa/verify', { code }, {
+          headers: {
             'Authorization': `Bearer ${session.token}`,
             'Content-Type': 'application/json'
           }
         });
-        
+
         // Actualizar el usuario actual
         set(state => ({
           currentAdmin: state.currentAdmin ? {
@@ -398,27 +376,21 @@ export const useAdminStore = create<AdminStore>()(
             two_factor_enabled: true
           } : null
         }));
-        
+
         return true;
       },
-      
+
       disable2FA: async (code: string) => {
         const { session } = get();
         if (!session) throw new Error('No hay sesión activa');
-        
-<<<<<<< HEAD
-        const apiUrl = import.meta.env.VITE_API_URL || '/api';
-        const response = await fetch(`${apiUrl}/auth/admin/2fa/disable`, {
-          method: 'POST',
-=======
-        await adminHttpClient.post('/admin/auth/2fa/disable', { code }, {
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
-          headers: { 
+
+        await adminHttpClient.post('/api/admin/auth/2fa/disable', { code }, {
+          headers: {
             'Authorization': `Bearer ${session.token}`,
             'Content-Type': 'application/json'
           }
         });
-        
+
         // Actualizar el usuario actual
         set(state => ({
           currentAdmin: state.currentAdmin ? {
@@ -426,57 +398,57 @@ export const useAdminStore = create<AdminStore>()(
             two_factor_enabled: false
           } : null
         }));
-        
+
         return true;
       },
-      
+
       // =====================================================
       // IMPLEMENTACIÓN DE UI
       // =====================================================
-      
+
       setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
       setLoading: (loading: boolean) => set({ loading }),
       setError: (error: string | null) => set({ error }),
       clearError: () => set({ error: null }),
-      
+
       // =====================================================
       // IMPLEMENTACIÓN DE USUARIOS
       // =====================================================
-      
+
       fetchUsers: async (filters = {}) => {
         set({ loading: true, error: null });
-        
+
         try {
           const queryParams = new URLSearchParams(filters);
           const data = await adminHttpClient.get(`/api/users?${queryParams}`);
-          
-          set({ 
+
+          set({
             users: data.data || data,
             pagination: { ...get().pagination, users: data.pagination },
-            loading: false 
+            loading: false
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al cargar usuarios';
-          set({ 
+          set({
             error: message,
-            loading: false 
+            loading: false
           });
           toast.error(message);
         }
       },
-      
+
       createUser: async (userData: Partial<SystemUser>) => {
         set({ loading: true, error: null });
-        
+
         try {
           const data = await adminHttpClient.post('/api/users', userData);
-          
+
           // Actualizar la lista de usuarios
           set(state => ({
             users: [data.data || data, ...state.users],
             loading: false
           }));
-          
+
           toast.success('Usuario creado exitosamente');
           return data.data || data;
         } catch (error) {
@@ -486,21 +458,21 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       updateUser: async (id: string, userData: Partial<SystemUser>) => {
         set({ loading: true, error: null });
-        
+
         try {
           const data = await adminHttpClient.put(`/api/users/${id}`, userData);
-          
+
           // Actualizar el usuario en la lista
           set(state => ({
-            users: state.users.map(user => 
+            users: state.users.map(user =>
               user.id === id ? { ...user, ...(data.data || data) } : user
             ),
             loading: false
           }));
-          
+
           toast.success('Usuario actualizado exitosamente');
           return data.data || data;
         } catch (error) {
@@ -510,19 +482,19 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       deleteUser: async (id: string) => {
         set({ loading: true, error: null });
-        
+
         try {
           await adminHttpClient.delete(`/api/users/${id}`);
-          
+
           // Remover el usuario de la lista
           set(state => ({
             users: state.users.filter(user => user.id !== id),
             loading: false
           }));
-          
+
           toast.success('Usuario eliminado exitosamente');
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al eliminar usuario';
@@ -531,58 +503,58 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       toggleUserStatus: async (id: string) => {
         const { session } = get();
         if (!session) throw new Error('No hay sesión activa');
-        
+
         const response = await fetch(`/api/users/${id}/toggle-status`, {
           method: 'PATCH',
           headers: { 'Authorization': `Bearer ${session.token}` }
         });
-        
+
         const data = await response.json();
         if (!response.ok) throw new Error(data.message);
-        
+
         // Actualizar el estado del usuario
         set(state => ({
-          users: state.users.map(user => 
+          users: state.users.map(user =>
             user.id === id ? { ...user, is_active: !user.is_active } : user
           )
         }));
       },
-      
+
       exportUsers: async (filters = {}) => {
         const { session } = get();
         if (!session) throw new Error('No hay sesión activa');
-        
+
         const queryParams = new URLSearchParams({ ...filters, export: 'csv' });
         const response = await fetch(`/api/users/export?${queryParams}`, {
           headers: { 'Authorization': `Bearer ${session.token}` }
         });
-        
+
         const data = await response.json();
         if (!response.ok) throw new Error(data.message);
-        
+
         return data.download_url;
       },
-      
+
       // =====================================================
       // IMPLEMENTACIÓN DE MÉTRICAS
       // =====================================================
-      
+
       fetchDashboardMetrics: async (dateRange) => {
         set({ loading: true, error: null });
-        
+
         try {
-          const params = dateRange ? 
+          const params = dateRange ?
             `?from=${dateRange.from}&to=${dateRange.to}` : '';
-          
+
           const data = await adminHttpClient.get(`/admin/dashboard/stats${params}`);
-          
-          set({ 
+
+          set({
             dashboardMetrics: data,
-            loading: false 
+            loading: false
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al cargar métricas';
@@ -590,51 +562,51 @@ export const useAdminStore = create<AdminStore>()(
           console.error('Error al cargar métricas:', error);
         }
       },
-      
+
       refreshMetrics: async () => {
         await get().fetchDashboardMetrics();
       },
-      
+
       // =====================================================
       // IMPLEMENTACIÓN DE PERMISOS
       // =====================================================
-      
+
       checkPermission: (permission: AdminPermissionCheck) => {
         const { currentAdmin } = get();
         if (!currentAdmin) return false;
-        
+
         // Los superadministradores tienen todos los permisos
         if (currentAdmin.is_super_admin) return true;
-        
+
         // Si tiene el permiso universal '*', tiene todos los permisos
         if (currentAdmin.permissions && currentAdmin.permissions.includes('*')) return true;
-        
+
         // Verificar permisos específicos - manejar tanto string como objetos
         if (typeof permission === 'string') {
           return currentAdmin.permissions.includes(permission);
         }
-        
+
         // Para objetos AdminPermissionCheck, construir el string de permiso
         const permissionString = `${permission.resource}:${permission.action}`;
         return currentAdmin.permissions.includes(permissionString);
       },
-      
+
       hasRole: (role: string) => {
         const { currentAdmin } = get();
         if (!currentAdmin) return false;
-        
+
         if (role === 'super_admin') return currentAdmin.is_super_admin;
         if (role === 'admin') return true; // Todos los usuarios admin tienen rol admin
-        
+
         return false;
       },
-      
+
       // =====================================================
       // IMPLEMENTACIÓN DE NOTIFICACIONES
       // =====================================================
-      
+
       notifications: [],
-      
+
       addNotification: (notification) => {
         const newNotification: NotificationEvent = {
           ...notification,
@@ -642,45 +614,45 @@ export const useAdminStore = create<AdminStore>()(
           timestamp: new Date().toISOString(),
           read: false
         };
-        
+
         set(state => ({
           notifications: [newNotification, ...state.notifications].slice(0, 50) // Máximo 50 notificaciones
         }));
       },
-      
+
       removeNotification: (id: string) => {
         set(state => ({
           notifications: state.notifications.filter(n => n.id !== id)
         }));
       },
-      
+
       markNotificationAsRead: (id: string) => {
         set(state => ({
-          notifications: state.notifications.map(n => 
+          notifications: state.notifications.map(n =>
             n.id === id ? { ...n, read: true } : n
           )
         }));
       },
-      
+
       clearNotifications: () => {
         set({ notifications: [] });
       },
-      
+
       // =====================================================
       // IMPLEMENTACIONES PENDIENTES (PLACEHOLDER)
       // =====================================================
-      
+
       // Caficultores
       fetchCoffeeGrowers: async (filters = {}) => {
         set({ loading: true, error: null });
-        
+
         try {
           const queryParams = new URLSearchParams(filters);
           const data = await adminHttpClient.get(`/api/coffee-growers?${queryParams}`);
-          
-          set({ 
+
+          set({
             coffeeGrowers: data.data || data,
-            loading: false 
+            loading: false
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al cargar caficultores';
@@ -688,18 +660,18 @@ export const useAdminStore = create<AdminStore>()(
           toast.error(message);
         }
       },
-      
+
       createCoffeeGrower: async (growerData: Partial<CoffeeGrower>) => {
         set({ loading: true, error: null });
-        
+
         try {
           const data = await adminHttpClient.post('/api/coffee-growers', growerData);
-          
+
           set(state => ({
             coffeeGrowers: [data.data || data, ...state.coffeeGrowers],
             loading: false
           }));
-          
+
           toast.success('Caficultor creado exitosamente');
           return data.data || data;
         } catch (error) {
@@ -709,20 +681,20 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       updateCoffeeGrower: async (id: string, growerData: Partial<CoffeeGrower>) => {
         set({ loading: true, error: null });
-        
+
         try {
           const data = await adminHttpClient.put(`/api/coffee-growers/${id}`, growerData);
-          
+
           set(state => ({
-            coffeeGrowers: state.coffeeGrowers.map(grower => 
+            coffeeGrowers: state.coffeeGrowers.map(grower =>
               grower.id === id ? { ...grower, ...(data.data || data) } : grower
             ),
             loading: false
           }));
-          
+
           toast.success('Caficultor actualizado exitosamente');
           return data.data || data;
         } catch (error) {
@@ -732,18 +704,18 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       deleteCoffeeGrower: async (id: string) => {
         set({ loading: true, error: null });
-        
+
         try {
           await adminHttpClient.delete(`/api/coffee-growers/${id}`);
-          
+
           set(state => ({
             coffeeGrowers: state.coffeeGrowers.filter(grower => grower.id !== id),
             loading: false
           }));
-          
+
           toast.success('Caficultor eliminado exitosamente');
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al eliminar caficultor';
@@ -752,12 +724,12 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       exportCoffeeGrowers: async (filters = {}) => {
         try {
           const queryParams = new URLSearchParams({ ...filters, export: 'csv' });
           const data = await adminHttpClient.get(`/api/coffee-growers/export?${queryParams}`);
-          
+
           toast.success('Exportación iniciada');
           return data.download_url || data.url;
         } catch (error) {
@@ -766,18 +738,18 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       // Fincas
       fetchFarms: async (filters = {}) => {
         set({ loading: true, error: null });
-        
+
         try {
           const queryParams = new URLSearchParams(filters);
           const data = await adminHttpClient.get(`/api/farms?${queryParams}`);
-          
-          set({ 
+
+          set({
             farms: data.data || data,
-            loading: false 
+            loading: false
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al cargar fincas';
@@ -785,18 +757,18 @@ export const useAdminStore = create<AdminStore>()(
           toast.error(message);
         }
       },
-      
+
       createFarm: async (farmData: Partial<Farm>) => {
         set({ loading: true, error: null });
-        
+
         try {
           const data = await adminHttpClient.post('/api/farms', farmData);
-          
+
           set(state => ({
             farms: [data.data || data, ...state.farms],
             loading: false
           }));
-          
+
           toast.success('Finca creada exitosamente');
           return data.data || data;
         } catch (error) {
@@ -806,20 +778,20 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       updateFarm: async (id: string, farmData: Partial<Farm>) => {
         set({ loading: true, error: null });
-        
+
         try {
           const data = await adminHttpClient.put(`/api/farms/${id}`, farmData);
-          
+
           set(state => ({
-            farms: state.farms.map(farm => 
+            farms: state.farms.map(farm =>
               farm.id === id ? { ...farm, ...(data.data || data) } : farm
             ),
             loading: false
           }));
-          
+
           toast.success('Finca actualizada exitosamente');
           return data.data || data;
         } catch (error) {
@@ -829,18 +801,18 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       deleteFarm: async (id: string) => {
         set({ loading: true, error: null });
-        
+
         try {
           await adminHttpClient.delete(`/api/farms/${id}`);
-          
+
           set(state => ({
             farms: state.farms.filter(farm => farm.id !== id),
             loading: false
           }));
-          
+
           toast.success('Finca eliminada exitosamente');
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al eliminar finca';
@@ -849,12 +821,12 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       exportFarms: async (filters = {}) => {
         try {
           const queryParams = new URLSearchParams({ ...filters, export: 'csv' });
           const data = await adminHttpClient.get(`/api/farms/export?${queryParams}`);
-          
+
           toast.success('Exportación iniciada');
           return data.download_url || data.url;
         } catch (error) {
@@ -863,18 +835,18 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       // Planes
       fetchSubscriptionPlans: async (filters = {}) => {
         set({ loading: true, error: null });
-        
+
         try {
           const queryParams = new URLSearchParams(filters);
           const data = await adminHttpClient.get(`/api/subscription-plans?${queryParams}`);
-          
-          set({ 
+
+          set({
             subscriptionPlans: data.data || data,
-            loading: false 
+            loading: false
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al cargar planes';
@@ -882,18 +854,18 @@ export const useAdminStore = create<AdminStore>()(
           toast.error(message);
         }
       },
-      
+
       createSubscriptionPlan: async (planData: Partial<SubscriptionPlan>) => {
         set({ loading: true, error: null });
-        
+
         try {
           const data = await adminHttpClient.post('/api/subscription-plans', planData);
-          
+
           set(state => ({
             subscriptionPlans: [data.data || data, ...state.subscriptionPlans],
             loading: false
           }));
-          
+
           toast.success('Plan creado exitosamente');
           return data.data || data;
         } catch (error) {
@@ -903,20 +875,20 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       updateSubscriptionPlan: async (id: string, planData: Partial<SubscriptionPlan>) => {
         set({ loading: true, error: null });
-        
+
         try {
           const data = await adminHttpClient.put(`/api/subscription-plans/${id}`, planData);
-          
+
           set(state => ({
-            subscriptionPlans: state.subscriptionPlans.map(plan => 
+            subscriptionPlans: state.subscriptionPlans.map(plan =>
               plan.id === id ? { ...plan, ...(data.data || data) } : plan
             ),
             loading: false
           }));
-          
+
           toast.success('Plan actualizado exitosamente');
           return data.data || data;
         } catch (error) {
@@ -926,18 +898,18 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       deleteSubscriptionPlan: async (id: string) => {
         set({ loading: true, error: null });
-        
+
         try {
           await adminHttpClient.delete(`/api/subscription-plans/${id}`);
-          
+
           set(state => ({
             subscriptionPlans: state.subscriptionPlans.filter(plan => plan.id !== id),
             loading: false
           }));
-          
+
           toast.success('Plan eliminado exitosamente');
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Error al eliminar plan';
@@ -946,20 +918,20 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       togglePlanStatus: async (id: string) => {
         set({ loading: true, error: null });
-        
+
         try {
           const data = await adminHttpClient.patch(`/api/subscription-plans/${id}/toggle-status`);
-          
+
           set(state => ({
-            subscriptionPlans: state.subscriptionPlans.map(plan => 
+            subscriptionPlans: state.subscriptionPlans.map(plan =>
               plan.id === id ? { ...plan, is_active: !plan.is_active } : plan
             ),
             loading: false
           }));
-          
+
           toast.success('Estado del plan actualizado');
           return data.data || data;
         } catch (error) {
@@ -969,7 +941,7 @@ export const useAdminStore = create<AdminStore>()(
           throw error;
         }
       },
-      
+
       // Suscripciones
       fetchSubscriptions: async () => { /* TODO: Implementar */ },
       createSubscription: async () => { throw new Error('No implementado'); },
@@ -977,36 +949,36 @@ export const useAdminStore = create<AdminStore>()(
       cancelSubscription: async () => { /* TODO: Implementar */ },
       renewSubscription: async () => { /* TODO: Implementar */ },
       exportSubscriptions: async () => { throw new Error('No implementado'); },
-      
+
       // Pagos
       fetchPayments: async () => { /* TODO: Implementar */ },
       createPayment: async () => { throw new Error('No implementado'); },
       updatePayment: async () => { throw new Error('No implementado'); },
       refundPayment: async () => { /* TODO: Implementar */ },
       exportPayments: async () => { throw new Error('No implementado'); },
-      
+
       // Auditoría
       fetchAuditLogs: async () => { /* TODO: Implementar */ },
       exportAuditLogs: async () => { throw new Error('No implementado'); },
-      
+
       // Configuración
       fetchSystemConfigs: async () => { /* TODO: Implementar */ },
       updateSystemConfig: async () => { /* TODO: Implementar */ },
       createSystemConfig: async () => { throw new Error('No implementado'); },
       deleteSystemConfig: async () => { /* TODO: Implementar */ },
-      
+
       // Reportes
       generateReport: async () => { throw new Error('No implementado'); },
       exportReport: async () => { throw new Error('No implementado'); },
-      
+
 
       // UTILIDADES
       // =====================================================
-      
+
       useAuthenticatedFetch: async (endpoint: string, options: RequestInit = {}) => {
         try {
           const { isAuthenticated } = get();
-          
+
           if (!isAuthenticated) {
             throw new Error('Usuario no autenticado');
           }
@@ -1014,9 +986,9 @@ export const useAdminStore = create<AdminStore>()(
           // Usar adminHttpClient para hacer la petición
           const method = (options.method || 'GET').toUpperCase();
           const body = options.body;
-          
+
           let response;
-          
+
           switch (method) {
             case 'GET':
               response = await adminHttpClient.get(endpoint);
@@ -1045,15 +1017,15 @@ export const useAdminStore = create<AdminStore>()(
               'Content-Type': 'application/json',
             },
           });
-          
+
         } catch (error: any) {
           console.error('Error en useAuthenticatedFetch:', error);
-          
+
           // Si es un error de autenticación, hacer logout
           if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
             get().logout();
           }
-          
+
           // Crear un Response de error
           return new Response(JSON.stringify({ error: error.message }), {
             status: error.status || 500,
@@ -1064,7 +1036,7 @@ export const useAdminStore = create<AdminStore>()(
           });
         }
       },
-      
+
       reset: () => set(initialState),
       hydrate: () => {
         // Verificar si la sesión sigue siendo válida
@@ -1092,15 +1064,15 @@ export const useAdminStore = create<AdminStore>()(
 // =====================================================
 
 export const useAdminAuth = () => {
-  const { 
-    isAuthenticated, 
-    currentAdmin, 
-    login, 
-    logout, 
-    loading, 
-    error 
+  const {
+    isAuthenticated,
+    currentAdmin,
+    login,
+    logout,
+    loading,
+    error
   } = useAdminStore();
-  
+
   return {
     isAuthenticated,
     currentAdmin,
@@ -1113,7 +1085,7 @@ export const useAdminAuth = () => {
 
 export const useAdminPermissions = () => {
   const { checkPermission, hasRole, currentAdmin } = useAdminStore();
-  
+
   return {
     checkPermission,
     hasRole,
@@ -1122,16 +1094,16 @@ export const useAdminPermissions = () => {
 };
 
 export const useAdminNotifications = () => {
-  const { 
-    notifications, 
-    addNotification, 
+  const {
+    notifications,
+    addNotification,
     removeNotification,
-    markNotificationAsRead, 
-    clearNotifications 
+    markNotificationAsRead,
+    clearNotifications
   } = useAdminStore();
-  
+
   const unreadCount = notifications.filter(n => !n.read).length;
-  
+
   return {
     notifications,
     unreadCount,

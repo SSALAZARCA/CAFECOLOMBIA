@@ -25,14 +25,14 @@ export const useOnlineStatus = () => {
     }
 
     const isDevelopment = import.meta.env.DEV;
-    
+
     // In development mode, use a simple connection check without external requests
     if (isDevelopment) {
       // Use navigator.connection API if available for better quality assessment
-      const connection = (navigator as any).connection || 
-                        (navigator as any).mozConnection || 
-                        (navigator as any).webkitConnection;
-      
+      const connection = (navigator as any).connection ||
+        (navigator as any).mozConnection ||
+        (navigator as any).webkitConnection;
+
       if (connection) {
         const effectiveType = connection.effectiveType;
         if (effectiveType === '4g' || effectiveType === '3g') {
@@ -41,16 +41,11 @@ export const useOnlineStatus = () => {
           return 'poor';
         }
       }
-      
+
       // Fallback: assume good connection if navigator.onLine is true
       return navigator.onLine ? 'good' : 'offline';
     }
 
-<<<<<<< HEAD
-    // TEMPORALMENTE DESACTIVADO: En producción, usar solo navigator.onLine
-    // para evitar el error net::ERR_ABORTED con /api/ping
-    return navigator.onLine ? 'good' : 'offline';
-=======
     // In production, try to ping the API (use lightweight ping endpoint)
     try {
       const start = Date.now();
@@ -68,7 +63,6 @@ export const useOnlineStatus = () => {
     } catch (error) {
       return 'offline';
     }
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
   }, []);
 
   // Actualizar contador de elementos pendientes de sincronización
@@ -94,7 +88,7 @@ export const useOnlineStatus = () => {
     }));
 
     const quality = await checkConnectionQuality();
-    
+
     setStatus(prev => ({
       ...prev,
       isConnecting: false,
@@ -131,10 +125,10 @@ export const useOnlineStatus = () => {
   // Verificar conexión manualmente
   const checkConnection = useCallback(async () => {
     setStatus(prev => ({ ...prev, isConnecting: true }));
-    
+
     const quality = await checkConnectionQuality();
     const isOnline = quality !== 'offline';
-    
+
     setStatus(prev => ({
       ...prev,
       isOnline,
@@ -144,7 +138,7 @@ export const useOnlineStatus = () => {
     }));
 
     await updatePendingSyncCount();
-    
+
     return { isOnline, quality };
   }, [checkConnectionQuality, updatePendingSyncCount]);
 
@@ -160,7 +154,7 @@ export const useOnlineStatus = () => {
 
   useEffect(() => {
     const isDevelopment = import.meta.env.DEV;
-    
+
     // Listeners para eventos de conexión
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);

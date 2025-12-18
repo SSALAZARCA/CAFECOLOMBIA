@@ -34,7 +34,7 @@ export default function HomeFallback() {
       arr.push({ ...item, id: Date.now().toString(), createdAt: new Date().toISOString() });
       localStorage.setItem(key, JSON.stringify(arr));
       setStats(readBasicStats());
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -65,6 +65,10 @@ export default function HomeFallback() {
           <p className="text-xs text-gray-600">API: {(import.meta as any).env?.VITE_API_URL || 'no definido'}</p>
           <div className="mt-3 flex gap-2">
             <button className="px-3 py-1 text-xs border rounded" onClick={() => location.reload()}>Reintentar carga completa</button>
-            <button className="px-3 py-1 text-xs border rounded" onClick={() => localStorage.setItem('emergency_mode','1')}>Activar modo emergencia</button>
+            <button className="px-3 py-1 text-xs border rounded" onClick={() => localStorage.setItem('emergency_mode', '1')}>Activar modo emergencia</button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}

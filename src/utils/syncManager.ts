@@ -24,7 +24,7 @@ export class SyncManager {
     // Escuchar eventos de conexión
     window.addEventListener('connection-restored', this.handleConnectionRestored.bind(this));
     window.addEventListener('force-sync', this.handleForceSync.bind(this));
-    
+
     // Registrar background sync si está disponible
     this.registerBackgroundSync();
   }
@@ -46,7 +46,7 @@ export class SyncManager {
   }
 
   // Manejar restauración de conexión
-  private async handleConnectionRestored() {
+  public async handleConnectionRestored() {
     console.log('[SyncManager] Connection restored, starting sync...');
     await this.syncAll();
   }
@@ -131,7 +131,7 @@ export class SyncManager {
       });
 
       // Limpiar elementos con demasiados reintentos
-      await this.cleanupFailedItems();
+      await this.cleanupOldData();
 
     } catch (error) {
       console.error('[SyncManager] Sync failed:', error);
@@ -158,7 +158,7 @@ export class SyncManager {
   // Sincronizar un elemento individual
   private async syncItem(item: SyncQueue): Promise<void> {
     const { table, action, data } = item;
-    
+
     switch (table) {
       case 'lots':
         await this.syncLot(action, data);
@@ -178,6 +178,9 @@ export class SyncManager {
       case 'expenses':
         await this.syncExpense(action, data);
         break;
+      case 'marketPrices':
+        await this.syncMarketPrice(action, data);
+        break;
       // Nuevas tablas de IA
       case 'aiImages':
         await this.syncAIImage(action, data);
@@ -193,10 +196,30 @@ export class SyncManager {
     }
   }
 
+  private async syncMarketPrice(action: string, data: any): Promise<void> {
+    const endpoint = '/api/market-prices';
+
+    switch (action) {
+      case 'create':
+        await this.apiRequest('POST', endpoint, {
+          ...data,
+          coffeeType: 'Standard', // Default values if missing
+          region: 'Local'
+        });
+        break;
+      case 'update':
+        await this.apiRequest('PUT', `${endpoint}/${data.serverId}`, data);
+        break;
+      case 'delete':
+        await this.apiRequest('DELETE', `${endpoint}/${data.serverId}`);
+        break;
+    }
+  }
+
   // Métodos de sincronización específicos por tabla
   private async syncLot(action: string, data: any): Promise<void> {
     const endpoint = '/api/lots';
-    
+
     switch (action) {
       case 'create':
         await this.apiRequest('POST', endpoint, data);
@@ -212,7 +235,7 @@ export class SyncManager {
 
   private async syncInventory(action: string, data: any): Promise<void> {
     const endpoint = '/api/inventory';
-    
+
     switch (action) {
       case 'create':
         await this.apiRequest('POST', endpoint, data);
@@ -228,7 +251,7 @@ export class SyncManager {
 
   private async syncTask(action: string, data: any): Promise<void> {
     const endpoint = '/api/tasks';
-    
+
     switch (action) {
       case 'create':
         await this.apiRequest('POST', endpoint, data);
@@ -243,8 +266,8 @@ export class SyncManager {
   }
 
   private async syncPestMonitoring(action: string, data: any): Promise<void> {
-    const endpoint = '/api/pest-monitoring';
-    
+    const endpoint = '/api/pests';
+
     switch (action) {
       case 'create':
         await this.apiRequest('POST', endpoint, data);
@@ -260,7 +283,7 @@ export class SyncManager {
 
   private async syncHarvest(action: string, data: any): Promise<void> {
     const endpoint = '/api/harvests';
-    
+
     switch (action) {
       case 'create':
         await this.apiRequest('POST', endpoint, data);
@@ -276,7 +299,7 @@ export class SyncManager {
 
   private async syncExpense(action: string, data: any): Promise<void> {
     const endpoint = '/api/expenses';
-    
+
     switch (action) {
       case 'create':
         await this.apiRequest('POST', endpoint, data);
@@ -294,7 +317,7 @@ export class SyncManager {
 
   private async syncAIImage(action: string, data: any): Promise<void> {
     const endpoint = '/api/ai/images';
-    
+
     switch (action) {
       case 'create':
         // Para imágenes, necesitamos enviar como FormData
@@ -302,7 +325,7 @@ export class SyncManager {
         formData.append('image', data.blob, data.filename);
         formData.append('metadata', JSON.stringify(data.metadata));
         formData.append('analysisStatus', data.analysisStatus);
-        
+
         await this.apiRequestFormData('POST', endpoint, formData);
         break;
       case 'update':
@@ -322,7 +345,7 @@ export class SyncManager {
 
   private async syncAIAnalysis(action: string, data: any): Promise<void> {
     const endpoint = '/api/ai/analysis';
-    
+
     switch (action) {
       case 'create':
         await this.apiRequest('POST', endpoint, data);
@@ -338,7 +361,7 @@ export class SyncManager {
 
   private async syncAINotification(action: string, data: any): Promise<void> {
     const endpoint = '/api/ai/notifications';
-    
+
     switch (action) {
       case 'create':
         await this.apiRequest('POST', endpoint, data);
@@ -355,7 +378,7 @@ export class SyncManager {
   // Realizar petición a la API con reintentos
   private async apiRequest(method: string, url: string, data?: any): Promise<any> {
     let lastError: Error;
-    
+
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
         const options: RequestInit = {
@@ -370,7 +393,7 @@ export class SyncManager {
         }
 
         const response = await fetch(url, options);
-        
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -378,7 +401,7 @@ export class SyncManager {
         return method !== 'DELETE' ? await response.json() : null;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Error desconocido');
-        
+
         // Silenciar errores de conexión en modo desarrollo
         const isDevelopment = import.meta.env.DEV;
         const isConnectionError = error instanceof Error && (
@@ -388,12 +411,12 @@ export class SyncManager {
           error.name === 'TypeError'
         );
         const isApiUrl = url.includes('/api/');
-        
+
         if (isDevelopment && isConnectionError && isApiUrl) {
           // Silent failure in development mode for API connections
           throw new Error('Service unavailable in development mode');
         }
-        
+
         if (attempt < this.maxRetries) {
           if (!isDevelopment || !isConnectionError || !isApiUrl) {
             console.log(`[SyncManager] Attempt ${attempt} failed, retrying in ${this.retryDelay}ms...`);
@@ -409,7 +432,7 @@ export class SyncManager {
   // Realizar petición con FormData (para imágenes)
   private async apiRequestFormData(method: string, url: string, formData: FormData): Promise<any> {
     let lastError: Error;
-    
+
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
         const options: RequestInit = {
@@ -419,7 +442,7 @@ export class SyncManager {
         };
 
         const response = await fetch(url, options);
-        
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -427,7 +450,7 @@ export class SyncManager {
         return await response.json();
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Error desconocido');
-        
+
         if (attempt < this.maxRetries) {
           console.log(`[SyncManager] FormData attempt ${attempt} failed, retrying in ${this.retryDelay}ms...`);
           await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
@@ -438,24 +461,24 @@ export class SyncManager {
     throw lastError!;
   }
 
-  // Limpiar elementos que han fallado demasiadas veces
-  private async cleanupFailedItems(): Promise<void> {
-    const failedItems = await offlineDB.syncQueue
-      .where('retries')
-      .above(this.maxRetries)
+  // Limpiar elementos antiguos de la cola (más de 30 días)
+  private async cleanupOldData(): Promise<void> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const oldQueueItems = await offlineDB.syncQueue
+      .where('timestamp')
+      .below(thirtyDaysAgo)
       .toArray();
 
-    if (failedItems.length > 0) {
-      console.log(`[SyncManager] Cleaning up ${failedItems.length} failed items`);
-      
-      for (const item of failedItems) {
+    if (oldQueueItems.length > 0) {
+      console.log(`[SyncManager] Cleaning up ${oldQueueItems.length} old sync queue items`);
+      for (const item of oldQueueItems) {
         await offlineDB.syncQueue.delete(item.id!);
       }
     }
   }
 
   // Registrar background sync
-  private async registerBackgroundSync(): Promise<void> {
+  public async registerBackgroundSync(): Promise<void> {
     // Skip background sync registration in development mode
     const isDevelopment = import.meta.env.DEV;
     if (isDevelopment) {
@@ -466,7 +489,7 @@ export class SyncManager {
     if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
       try {
         const registration = await navigator.serviceWorker.ready;
-        await registration.sync.register('background-sync');
+        await (registration as any).sync.register('background-sync');
         console.log('[SyncManager] Background sync registered');
       } catch (error) {
         // Silently handle background sync registration failures
@@ -481,7 +504,7 @@ export class SyncManager {
   async getSyncStatus() {
     const pendingItems = await offlineDB.getPendingSyncItems();
     const failedItems = pendingItems.filter(item => item.retries > 0);
-    
+
     return {
       issyncing: this.issyncing,
       pendingItems: pendingItems.length,
@@ -525,7 +548,7 @@ export class SyncManager {
 
     try {
       const pendingItems = await offlineDB.getPendingSyncItems();
-      const aiItems = pendingItems.filter(item => 
+      const aiItems = pendingItems.filter(item =>
         ['aiImages', 'aiAnalysis', 'aiNotifications'].includes(item.table)
       );
 
@@ -641,22 +664,22 @@ export class SyncManager {
       // Procesar en lotes
       for (let i = 0; i < pendingImages.length; i += batchSize) {
         const batch = pendingImages.slice(i, i + batchSize);
-        
+
         // Procesar lote en paralelo
         const batchPromises = batch.map(async (image) => {
           try {
             await this.syncAIImage('create', image);
-            await offlineDB.updateAIImageStatus(image.id!, 'synced');
+            await offlineDB.aiImages.update(image.id!, { syncStatus: 'synced' });
             return { success: true, image };
           } catch (error) {
             console.error(`[SyncManager] Failed to sync image ${image.id}:`, error);
-            await offlineDB.updateAIImageStatus(image.id!, 'failed');
+            await offlineDB.aiImages.update(image.id!, { syncStatus: 'failed' });
             return { success: false, image, error };
           }
         });
 
         const batchResults = await Promise.allSettled(batchPromises);
-        
+
         batchResults.forEach((promiseResult, index) => {
           if (promiseResult.status === 'fulfilled') {
             const { success } = promiseResult.value;
@@ -708,7 +731,7 @@ export class SyncManager {
         try {
           // Validar integridad del análisis antes de sincronizar
           const validationResult = await this.validateAIAnalysis(analysis);
-          
+
           if (!validationResult.isValid) {
             result.failedItems++;
             result.errors.push(`Analysis ${analysis.id}: ${validationResult.errors.join(', ')}`);
@@ -717,12 +740,12 @@ export class SyncManager {
 
           // Sincronizar análisis validado
           await this.syncAIAnalysis('create', analysis);
-          await offlineDB.updateAIAnalysisStatus(analysis.id!, 'synced');
+          await offlineDB.aiAnalysis.update(analysis.id!, { syncStatus: 'synced' });
           result.syncedItems++;
 
         } catch (error) {
           console.error(`[SyncManager] Failed to sync analysis ${analysis.id}:`, error);
-          await offlineDB.updateAIAnalysisStatus(analysis.id!, 'failed');
+          await offlineDB.aiAnalysis.update(analysis.id!, { syncStatus: 'failed' });
           result.failedItems++;
           result.errors.push(`Analysis ${analysis.id}: ${error instanceof Error ? error.message : 'Error desconocido'}`);
         }
@@ -834,18 +857,18 @@ export class SyncManager {
 
       // Filtrar notificaciones duplicadas o obsoletas
       const filteredNotifications = await this.filterNotifications(pendingNotifications);
-      
+
       console.log(`[SyncManager] After filtering: ${filteredNotifications.length} notifications to sync`);
 
       for (const notification of filteredNotifications) {
         try {
           await this.syncAINotification('create', notification);
-          await offlineDB.updateAINotificationStatus(notification.id!, 'synced');
+          await offlineDB.aiNotifications.update(notification.id!, { syncStatus: 'synced' });
           result.syncedItems++;
 
         } catch (error) {
           console.error(`[SyncManager] Failed to sync notification ${notification.id}:`, error);
-          await offlineDB.updateAINotificationStatus(notification.id!, 'failed');
+          await offlineDB.aiNotifications.update(notification.id!, { syncStatus: 'failed' });
           result.failedItems++;
           result.errors.push(`Notification ${notification.id}: ${error instanceof Error ? error.message : 'Error desconocido'}`);
         }
@@ -866,14 +889,14 @@ export class SyncManager {
     const seen = new Set<string>();
 
     // Ordenar por timestamp (más recientes primero)
-    const sorted = notifications.sort((a, b) => 
+    const sorted = notifications.sort((a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
     for (const notification of sorted) {
       // Crear clave única basada en tipo, agente y contenido
       const key = `${notification.type}-${notification.agentType}-${notification.title}`;
-      
+
       // Evitar duplicados
       if (seen.has(key)) {
         console.log(`[SyncManager] Skipping duplicate notification: ${key}`);
@@ -883,7 +906,7 @@ export class SyncManager {
       // Evitar notificaciones muy antiguas (más de 30 días)
       const notificationAge = Date.now() - new Date(notification.timestamp).getTime();
       const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 días en milisegundos
-      
+
       if (notificationAge > maxAge) {
         console.log(`[SyncManager] Skipping old notification: ${notification.id}`);
         continue;
@@ -905,7 +928,7 @@ export class SyncManager {
   }> {
     try {
       const pendingItems = await offlineDB.getPendingSyncItems();
-      const aiItems = pendingItems.filter(item => 
+      const aiItems = pendingItems.filter(item =>
         ['aiImages', 'aiAnalysis', 'aiNotifications'].includes(item.table)
       );
 
@@ -1036,19 +1059,19 @@ export class SyncManager {
       }, {} as Record<string, number>);
 
       const mostCommonError = Object.entries(errorsByType)
-        .sort(([,a], [,b]) => b - a)[0];
+        .sort(([, a], [, b]) => b - a)[0];
 
       return {
         totalErrors: failedItems.length,
         errorsByType,
         mostCommonError: mostCommonError ? mostCommonError[0] : 'None',
         recentErrors: failedItems
-          .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
+          .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
           .slice(0, 5)
           .map(item => ({
             table: item.table,
             error: item.lastError,
-            timestamp: item.updatedAt,
+            timestamp: item.timestamp,
             retries: item.retries
           }))
       };
@@ -1067,7 +1090,7 @@ export class SyncManager {
   // Categorizar errores para análisis
   private categorizeError(errorMessage: string): string {
     const message = errorMessage.toLowerCase();
-    
+
     if (message.includes('network') || message.includes('fetch')) {
       return 'Network Error';
     } else if (message.includes('timeout')) {
@@ -1136,12 +1159,12 @@ export class SyncManager {
   // Obtener estadísticas de sincronización de IA
   async getAISyncStatus() {
     const pendingItems = await offlineDB.getPendingSyncItems();
-    const aiItems = pendingItems.filter(item => 
+    const aiItems = pendingItems.filter(item =>
       ['aiImages', 'aiAnalysis', 'aiNotifications'].includes(item.table)
     );
-    
+
     const aiStats = await offlineDB.getAIStats();
-    
+
     return {
       issyncing: this.issyncing,
       pendingAIItems: aiItems.length,
@@ -1166,7 +1189,7 @@ export class SyncManager {
       }
 
       await offlineDB.addToSyncQueue('aiAnalysis', analysisId, 'update', analysis);
-      
+
       // Intentar sincronizar inmediatamente si hay conexión
       if (navigator.onLine) {
         await this.syncAIData();
@@ -1341,14 +1364,14 @@ export class SyncManager {
 
   // Obtener tipo de conexión
   private getConnectionType(): 'wifi' | 'cellular' | 'unknown' {
-    const connection = (navigator as any).connection || 
-                      (navigator as any).mozConnection || 
-                      (navigator as any).webkitConnection;
-    
+    const connection = (navigator as any).connection ||
+      (navigator as any).mozConnection ||
+      (navigator as any).webkitConnection;
+
     if (connection) {
       return connection.type === 'wifi' ? 'wifi' : 'cellular';
     }
-    
+
     return 'unknown';
   }
 
@@ -1362,7 +1385,7 @@ export class SyncManager {
     } catch (error) {
       console.warn('[SyncManager] Battery API not available:', error);
     }
-    
+
     return 100; // Asumir batería completa si no se puede obtener
   }
 

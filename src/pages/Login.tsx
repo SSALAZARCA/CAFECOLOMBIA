@@ -16,7 +16,7 @@ import {
   User
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import apiClient, { API_ENDPOINTS } from '../services/apiClient';
+import apiClient from '../services/apiClient';
 
 // Esquema de validación
 const loginSchema = z.object({
@@ -30,20 +30,16 @@ type LoginFormData = z.infer<typeof loginSchema>;
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { login: authLogin } = useAuth();
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-<<<<<<< HEAD
-  const [demoMode, setDemoMode] = useState<boolean>(import.meta.env.VITE_DEMO_AUTH === 'true');
-  const { login: authLogin } = useAuth();
-=======
-  const [userRole, setUserRole] = useState('');
+
   const [showTwoFactor, setShowTwoFactor] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
-  // Eliminado estado duplicado de userRole
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
 
-  // Obtener mensaje de estado de la navegación (ej: desde registro exitoso)
+  // Obtener mensaje de estado de la navegación
   const stateMessage = location.state?.message;
   const messageType = location.state?.type || 'info';
 
@@ -63,75 +59,22 @@ const Login: React.FC = () => {
   const handleTwoFactorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-<<<<<<< HEAD
-
-    // Modo demo: bypass backend
-    const matchDemoCredentials = (email: string, password: string) => {
-      if (email === 'caficultor@test.com' && password === 'test123') {
-        return {
-          token: 'demo-token-coffee',
-          user: {
-            id: 'demo-cg-1',
-            nombre: 'Caficultor Demo',
-            email: 'caficultor@test.com',
-            role: 'coffee_grower',
-            tipo_usuario: 'coffee_grower',
-            is_super_admin: false
-          }
-        };
-      }
-      if (email === 'admin@test.com' && password === 'admin123') {
-        return {
-          token: 'demo-token-admin',
-          user: {
-            id: 'demo-admin-1',
-            nombre: 'Admin Demo',
-            email: 'admin@test.com',
-            role: 'admin',
-            tipo_usuario: 'admin',
-            is_super_admin: false
-          }
-        };
-      }
-      return null;
-    };
-
-    try {
-      if (demoMode) {
-        const demo = matchDemoCredentials(data.email, data.password);
-        if (!demo) {
-          throw new Error('Credenciales de demo inválidas');
-        }
-
-        authLogin(demo.token, demo.user);
-=======
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          twoFactorCode: twoFactorCode
-        }),
+      // We use apiClient here for consistency
+      const res = await apiClient.post('/auth/admin/login', {
+        email: watchedEmail,
+        twoFactorCode: twoFactorCode
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Error al verificar el código 2FA');
+      if (res.success) {
+        const { user, token } = res.data;
+        authLogin(token, user);
+        navigate('/admin/dashboard');
+      } else {
+        throw new Error(res.message || 'Error 2FA');
       }
-
-      // Guardar token y datos del usuario
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      // Redirigir al dashboard de admin
-      navigate('/admin/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al verificar el código 2FA');
     } finally {
@@ -139,281 +82,65 @@ const Login: React.FC = () => {
     }
   };
 
-  // Detectar tipo de usuario basado en el email mientras escribe
-  useEffect(() => {
-    const detectUserType = async () => {
-      if (watchedEmail && watchedEmail.includes('@')) {
-        try {
-          const response = await fetch('/api/auth/detect-user-type', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: watchedEmail })
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setUserRole(data.role || '');
-          }
-        } catch (error) {
-          console.error('Error detectando tipo de usuario:', error);
-          setUserRole('');
-        }
-      } else {
-        setUserRole('');
-      }
-    };
 
-    // Debounce para no hacer muchas peticiones
-    const timer = setTimeout(detectUserType, 500);
-    return () => clearTimeout(timer);
-  }, [watchedEmail]);
-
-  // Detectar tipo de usuario cuando cambia el email
-  const detectUserType = async (email: string) => {
-    if (!email || !email.includes('@')) {
-      setUserRole('');
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/auth/detect-user-type', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && data.exists) {
-        setUserRole(data.role || '');
-      } else {
-        setUserRole('');
-      }
-    } catch (error) {
-      console.error('Error detectando tipo de usuario:', error);
-      setUserRole('');
-    }
-  };
-
-  // Debounce para la detección de usuario
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (watchedEmail) {
-        detectUserType(watchedEmail);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [watchedEmail]);
 
   const onSubmit = async (data: LoginFormData) => {
     setLoading(true);
     setError('');
-    
     try {
-      let response;
-      let result;
-
-      // Determinar qué endpoint usar basado en el tipo de usuario detectado
-      if (userRole === 'super_admin' || userRole === 'admin') {
-        // Para administradores, usar el endpoint de admin/login
-        response = await fetch('/api/auth/admin/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: data.email,
-            password: data.password,
-            twoFactorCode: twoFactorCode || undefined
-          }),
-        });
-      } else {
-        // Para caficultores y trabajadores, usar el endpoint de login normal
-        response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: data.email,
-            password: data.password
-          }),
-        });
-      }
-
-      result = await response.json();
-
-      if (response.ok && result && result.user) {
-        // Guardar token en localStorage
-        localStorage.setItem('token', result.token);
-        localStorage.setItem('user', JSON.stringify(result.user));
-        
-        // Recordar usuario si está marcado
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
-        if (data.rememberMe) {
-          localStorage.setItem('rememberUser', data.email);
-        } else {
-          localStorage.removeItem('rememberUser');
-        }
-
-<<<<<<< HEAD
-        if (demo.user.role === 'coffee_grower') {
-          navigate('/dashboard');
-        } else if (demo.user.role === 'admin' || demo.user.role === 'super_admin') {
-          import('../stores/adminStore').then(({ useAdminStore }) => {
-            useAdminStore.setState({
-              isAuthenticated: true,
-              session: {
-                token: demo.token,
-                refresh_token: demo.token,
-                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-              },
-              currentAdmin: {
-                id: demo.user.id,
-                email: demo.user.email,
-                name: demo.user.nombre,
-                role: demo.user.role,
-                is_active: true,
-                permissions: ['*']
-              },
-              loading: false
-            });
-            navigate('/admin/dashboard');
-          });
-        } else {
-          navigate('/');
-=======
-        // Si el login de admin requiere 2FA, manejarlo
-        if (result.requiresTwoFactor) {
-          // Redirigir a la página de verificación 2FA
-          navigate('/verify-2fa', { state: { email: data.email, token: result.tempToken } });
-          return;
-        }
-
-        // Redirigir según el tipo de usuario con sistema inteligente
-        const role = result.user?.role;
-        const targetPath = location.state?.from?.pathname;
-        
-        // Si hay una ruta objetivo desde la que vino, priorizar esa
-        if (targetPath && !targetPath.includes('/login')) {
-          navigate(targetPath, { replace: true });
-          return;
-        }
-        
-        // Redirección basada en roles
-        switch (role) {
-          case 'super_admin':
-          case 'admin':
-            navigate('/admin/dashboard');
-            break;
-          case 'coffee_grower':
-            navigate('/dashboard');
-            break;
-          case 'trabajador':
-            navigate('/dashboard');
-            break;
-          default:
-            navigate('/dashboard');
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
-        }
-        return;
-      }
-
-      // Use standardized apiClient which handles the base URL (relative in prod, absolute in dev)
-      console.log('🚀 Iniciando login via apiClient...');
-
+      // Determine endpoint
       const res = await apiClient.post('/auth/login', {
         email: data.email,
-        password: data.password
+        password: data.password,
+        twoFactorCode: twoFactorCode || undefined
       });
 
-      console.log('📦 Respuesta Login Raw:', res);
+      // Adapt response if strictly needed, but apiClient usually returns standard shape
+      const success = res.success || (res as any).content?.token;
 
-      // apiClient returns { success, data, message } directly
-      // We need to adapt it if previously we were expecting raw fetch response
-      const json = res;
+      if (success) {
+        const responseData = res.data || res;
+        const user = responseData.user;
+        const token = responseData.token;
+        const requiresTwoFactor = responseData.requiresTwoFactor;
+        const tempToken = responseData.tempToken;
 
-      if (json.success) {
-        // Estructura backend confirmada: { success: true, data: { user, token } }
-        const responseData = json.data || {};
-        const { user, token } = responseData;
-
-        // Validación estricta
-        if (!user || !token) {
-          const keysEncontradas = Object.keys(responseData).join(', ');
-          throw new Error(`Respuesta incompleta. Keys encontradas en data: [${keysEncontradas}]`);
+        if (requiresTwoFactor) {
+          navigate('/verify-2fa', { state: { email: data.email, token: tempToken } });
+          return;
         }
 
-        console.log('✅ Usuario extraído:', user);
-        authLogin(token, user);
+        if (user && token) {
+          authLogin(token, user);
 
-        if (data.rememberMe) {
-          localStorage.setItem('rememberUser', data.email);
-        } else {
-          localStorage.removeItem('rememberUser');
-        }
+          if (data.rememberMe) {
+            localStorage.setItem('rememberUser', data.email);
+          } else {
+            localStorage.removeItem('rememberUser');
+          }
 
-        // Validación de rol directa
-        const role = user.role || user.tipo_usuario;
-        console.log('🔑 Rol detectado:', role);
-
-        if (role === 'coffee_grower' || role === 'CAFICULTOR') {
-          navigate('/dashboard');
-        } else if (role === 'admin' || role === 'super_admin' || role === 'ADMINISTRADOR') {
-          import('../stores/adminStore').then(({ useAdminStore }) => {
-            useAdminStore.setState({
-              isAuthenticated: true,
-              session: {
-                token: token,
-                refresh_token: token,
-                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-              },
-              currentAdmin: {
-                id: user.id || 'admin-fallback',
-                email: user.email || data.email,
-                name: user.name || 'Admin',
-                role: role,
-                is_active: true,
-                permissions: user.permissions || ['*']
-              },
-              loading: false
-            });
+          // Redirect
+          const role = user.role || user.tipo_usuario;
+          if (['coffee_grower', 'caficultor', 'trabajador'].includes(role)) {
+            navigate('/dashboard');
+          } else {
             navigate('/admin/dashboard');
-          });
+          }
         } else {
-          console.warn('⚠️ Rol desconocido, redirigiendo a dashboard por defecto');
-          navigate('/dashboard');
+          throw new Error('Respuesta inválida del servidor');
         }
-
       } else {
-<<<<<<< HEAD
-        const errorMsg = json.message || json.error || 'Login fallido';
-        setError(errorMsg);
-=======
-        const msg = result?.message || 'Error en el inicio de sesión';
-        setError(msg);
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
+        setError(res.message || 'Error en inicio de sesión');
       }
     } catch (error) {
-      console.error('Error en login:', error);
-      // Fallback a demo si falla conexión crítica
-      const demo = matchDemoCredentials(data.email, data.password);
-      if (demo) {
-        console.warn('⚠️ Backend no responde, usando modo demo fallback');
-        authLogin(demo.token, demo.user);
-        if (demo.user.role === 'coffee_grower') navigate('/dashboard');
-        else navigate('/admin/dashboard');
-      } else {
-        setError(`Error de conexión: ${error instanceof Error ? error.message : String(error)}`);
-      }
+      console.error('Login error', error);
+      setError('Error al conectar con el servidor');
     } finally {
       setLoading(false);
     }
   };
 
-  // Cargar email recordado al montar el componente
+  // Effects for rememberMe
   useEffect(() => {
     const rememberedEmail = localStorage.getItem('rememberUser');
     if (rememberedEmail) {
@@ -422,42 +149,11 @@ const Login: React.FC = () => {
     }
   }, [setValue]);
 
-  // Función para obtener icono según el rol detectado
-  const getRoleIcon = () => {
-    switch (userRole) {
-      case 'super_admin':
-        return <Shield className="h-4 w-4 text-purple-500" />;
-      case 'admin':
-        return <Shield className="h-4 w-4 text-blue-500" />;
-      case 'coffee_grower':
-        return <Leaf className="h-4 w-4 text-green-500" />;
-      case 'trabajador':
-        return <User className="h-4 w-4 text-gray-500" />;
-      default:
-        return null;
-    }
-  };
 
-  // Función para obtener texto descriptivo del rol
-  const getRoleDescription = () => {
-    switch (userRole) {
-      case 'super_admin':
-        return 'Super Administrador';
-      case 'admin':
-        return 'Administrador';
-      case 'coffee_grower':
-        return 'Caficultor';
-      case 'trabajador':
-        return 'Trabajador';
-      default:
-        return '';
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Logo y título */}
         <div className="flex justify-center">
           <div className="bg-gradient-to-br from-green-600 to-amber-600 p-3 rounded-xl">
             <Coffee className="h-8 w-8 text-white" />
@@ -473,7 +169,6 @@ const Login: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10">
-          {/* Mensaje de estado */}
           {stateMessage && (
             <div className={`mb-4 p-4 rounded-md ${messageType === 'success'
               ? 'bg-green-50 border border-green-200'
@@ -504,7 +199,6 @@ const Login: React.FC = () => {
             </div>
           )}
 
-          {/* Error de login */}
           {error && (
             <div className="mb-4 p-4 rounded-md bg-red-50 border border-red-200">
               <div className="flex">
@@ -518,17 +212,7 @@ const Login: React.FC = () => {
             </div>
           )}
 
-          {/* Indicador de tipo de usuario detectado */}
-          {userRole && (
-            <div className="mb-4 p-3 rounded-md bg-blue-50 border border-blue-200">
-              <div className="flex items-center">
-                {getRoleIcon()}
-                <span className="ml-2 text-sm text-blue-800">
-                  Detectado como: <strong>{getRoleDescription()}</strong>
-                </span>
-              </div>
-            </div>
-          )}
+
 
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
             <div>
@@ -563,16 +247,9 @@ const Login: React.FC = () => {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-<<<<<<< HEAD
                   className={`pl-10 pr-10 appearance-none relative block w-full px-3 py-2 border ${errors.password ? 'border-red-300' : 'border-gray-300'
                     } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm`}
-                  placeholder="Tu contraseña"
-=======
-                  className={`pl-10 pr-10 appearance-none relative block w-full px-3 py-2 border ${
-                    errors.password ? 'border-red-300' : 'border-gray-300'
-                  } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm`}
                   placeholder="••••••••"
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
                 />
                 <button
                   type="button"
@@ -591,7 +268,6 @@ const Login: React.FC = () => {
               )}
             </div>
 
-            {/* Campo de código 2FA para administradores */}
             {(userRole === 'super_admin' || userRole === 'admin') && (
               <div>
                 <label htmlFor="twoFactorCode" className="block text-sm font-medium text-gray-700">
@@ -652,27 +328,6 @@ const Login: React.FC = () => {
               </button>
             </div>
 
-<<<<<<< HEAD
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">¿Nuevo en Café Colombia?</span>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <Link
-                  to="/register"
-                  className="w-full flex justify-center py-2 px-4 border border-green-600 text-sm font-medium rounded-md text-green-600 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  <Leaf className="h-4 w-4 mr-2" />
-                  Registrar mi finca
-                </Link>
-              </div>
-=======
             <div className="text-center space-y-3">
               <span className="text-sm text-gray-600 block">
                 ¿No tienes una cuenta?
@@ -683,7 +338,6 @@ const Login: React.FC = () => {
               >
                 Crear cuenta
               </Link>
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
             </div>
           </form>
         </div>

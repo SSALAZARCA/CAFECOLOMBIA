@@ -1,19 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const mysql = require('mysql2/promise');
-const path = require('path');
-const dotenv = require('dotenv');
+// MySQL imports removed for local dev safety
+// const mysql = require('mysql2/promise');
+// const path = require('path');
+// const dotenv = require('dotenv');
+// dotenv.config({ path: path.join(__dirname, '../../../.env') });
 
-dotenv.config({ path: path.join(__dirname, '../../../.env') });
-
-const dbConfig = {
-    host: process.env.DB_HOST || 'srv1196.hstgr.io',
-    port: parseInt(process.env.DB_PORT || '3306'),
-    user: process.env.DB_USER || 'u689528678_SSALAZARCA',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'u689528678_CAFECOLOMBIA',
-    ssl: { rejectUnauthorized: false }
-};
 
 // Configuración de seguridad por defecto
 const defaultSecuritySettings = {
@@ -101,31 +93,30 @@ router.put('/settings', async (req, res) => {
 // GET /api/admin/security/roles - Obtener roles del sistema
 router.get('/roles', async (req, res) => {
     try {
-        const connection = await mysql.createConnection(dbConfig);
-
-        // Obtener roles basados en los roles de usuarios existentes
-        const [userRoles] = await connection.execute(`
-            SELECT 
-                role as name,
-                COUNT(*) as userCount
-            FROM users
-            WHERE isActive = 1
-            GROUP BY role
-        `);
-
-        await connection.end();
-
-        // Mapear roles del sistema
-        const roles = userRoles.map((row, index) => ({
-            id: `role-${index + 1}`,
-            name: row.name,
-            description: getRoleDescription(row.name),
-            permissions: getRolePermissions(row.name),
-            userCount: row.userCount,
-            isSystem: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        }));
+        // En producción, esto vendría de BD.
+        // Mock Roles for Local Dev:
+        const roles = [
+            {
+                id: 'role-1',
+                name: 'ADMINISTRADOR',
+                description: getRoleDescription('ADMINISTRADOR'),
+                permissions: getRolePermissions('ADMINISTRADOR'),
+                userCount: 3,
+                isSystem: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            },
+            {
+                id: 'role-2',
+                name: 'CAFICULTOR',
+                description: 'Acceso básico para productores',
+                permissions: [],
+                userCount: 150,
+                isSystem: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }
+        ];
 
         res.json({
             success: true,

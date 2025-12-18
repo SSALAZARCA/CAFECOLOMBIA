@@ -267,15 +267,9 @@ const Register: React.FC = () => {
                     {...register('email')}
                     id="regEmail"
                     type="email"
-<<<<<<< HEAD
+                    autoComplete="email"
                     className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${errors.email ? 'border-red-300' : 'border-gray-300'
                       } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
-=======
-                    autoComplete="email"
-                    className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
-                      errors.email ? 'border-red-300' : 'border-gray-300'
-                    } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
                     placeholder="tu@email.com"
                   />
                 </div>
@@ -292,15 +286,9 @@ const Register: React.FC = () => {
                     {...register('phone')}
                     id="phone"
                     type="tel"
-<<<<<<< HEAD
+                    autoComplete="tel"
                     className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${errors.phone ? 'border-red-300' : 'border-gray-300'
                       } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
-=======
-                    autoComplete="tel"
-                    className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
-                      errors.phone ? 'border-red-300' : 'border-gray-300'
-                    } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
                     placeholder="+57 300 123 4567"
                   />
                 </div>
@@ -318,15 +306,9 @@ const Register: React.FC = () => {
                       {...register('password')}
                       id="regPassword"
                       type={showPassword ? 'text' : 'password'}
-<<<<<<< HEAD
+                      autoComplete="new-password"
                       className={`pl-10 pr-10 appearance-none relative block w-full px-3 py-2 border ${errors.password ? 'border-red-300' : 'border-gray-300'
                         } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
-=======
-                      autoComplete="new-password"
-                      className={`pl-10 pr-10 appearance-none relative block w-full px-3 py-2 border ${
-                        errors.password ? 'border-red-300' : 'border-gray-300'
-                      } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
                       placeholder="Mínimo 8 caracteres"
                     />
                     <button
@@ -354,15 +336,9 @@ const Register: React.FC = () => {
                       {...register('confirmPassword')}
                       id="confirmPassword"
                       type={showConfirmPassword ? 'text' : 'password'}
-<<<<<<< HEAD
+                      autoComplete="new-password"
                       className={`pl-10 pr-10 appearance-none relative block w-full px-3 py-2 border ${errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                         } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
-=======
-                      autoComplete="new-password"
-                      className={`pl-10 pr-10 appearance-none relative block w-full px-3 py-2 border ${
-                        errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                      } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
                       placeholder="Repite la contraseña"
                     />
                     <button
@@ -425,15 +401,9 @@ const Register: React.FC = () => {
                     <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <select
                       {...register('department')}
-<<<<<<< HEAD
+                      id="department"
                       className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${errors.department ? 'border-red-300' : 'border-gray-300'
                         } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
-=======
-                      id="department"
-                      className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
-                        errors.department ? 'border-red-300' : 'border-gray-300'
-                      } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
                       onChange={(e) => {
                         register('department').onChange(e); // Call original handler
                         setValue('municipality', ''); // Reset municipality
@@ -456,17 +426,10 @@ const Register: React.FC = () => {
                     <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <select
                       {...register('municipality')}
-<<<<<<< HEAD
+                      id="municipality"
                       className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${errors.municipality ? 'border-red-300' : 'border-gray-300'
                         } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
-                      disabled={!watch('department')}
-=======
-                      id="municipality"
-                      className={`pl-10 appearance-none relative block w-full px-3 py-2 border ${
-                        errors.municipality ? 'border-red-300' : 'border-gray-300'
-                      } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500`}
                       disabled={!selectedDepartment}
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
                     >
                       <option value="">Selecciona municipio</option>
                       {watch('department') && DEPARTMENTS[watch('department') as keyof typeof DEPARTMENTS]?.map(mun => (

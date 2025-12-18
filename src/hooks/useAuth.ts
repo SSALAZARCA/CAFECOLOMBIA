@@ -40,20 +40,6 @@ export const useAuth = () => {
   const checkAuth = () => {
     try {
       const token = localStorage.getItem('token');
-<<<<<<< HEAD
-      const userData = localStorage.getItem('user');
-
-      if (token && userData && userData !== 'undefined') {
-        try {
-          const parsedUser = JSON.parse(userData);
-          setUser(parsedUser);
-          setIsAuthenticated(true);
-        } catch (e) {
-          console.error('Error parsing user data:', e);
-          // Data corrupta, limpiar
-          localStorage.removeItem('user');
-          localStorage.removeItem('token');
-=======
       const raw = localStorage.getItem('user');
 
       // Invalidate obviously bad tokens and user data
@@ -79,7 +65,7 @@ export const useAuth = () => {
           if (!parsedUser || !parsedUser.id || !parsedUser.email) {
             throw new Error('Invalid user shape');
           }
-          
+
           // Normalizar rol de caficultor
           const validCoffeeGrowerRoles = ['coffee_grower', 'coffee-grower', 'farmer', 'user', 'caficultor'];
           const userRole = parsedUser.tipo_usuario || parsedUser.role;
@@ -87,21 +73,21 @@ export const useAuth = () => {
             parsedUser.tipo_usuario = 'coffee_grower';
             parsedUser.role = 'coffee_grower';
           }
-          
+
           setUser(parsedUser);
           setIsAuthenticated(true);
         } catch (parseErr) {
           console.warn('Invalid user data in storage. Clearing.');
           localStorage.removeItem('user');
->>>>>>> f33fbe9a86f68dc9ab07d6cb1473b463841ee9ad
           setUser(null);
           setIsAuthenticated(false);
         }
       } else {
+        // Token exists and looks valid-ish, but no user data?
+        // Verify against API or just fail fallback
         setUser(null);
         setIsAuthenticated(false);
-        // Limpiar basura si existe
-        if (userData === 'undefined') localStorage.removeItem('user');
+        if (raw === 'undefined') localStorage.removeItem('user');
       }
     } catch (error) {
       console.error('Error checking auth:', error);

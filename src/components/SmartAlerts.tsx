@@ -5,11 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Bell, 
-  AlertTriangle, 
-  Clock, 
-  Cloud, 
+import {
+  Bell,
+  AlertTriangle,
+  Clock,
+  Cloud,
   Thermometer,
   Droplets,
   Bug,
@@ -98,10 +98,10 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
   useEffect(() => {
     fetchAlerts();
     fetchSettings();
-    
+
     // Configurar polling para nuevas alertas
     const interval = setInterval(fetchAlerts, 30000); // Cada 30 segundos
-    
+
     return () => clearInterval(interval);
   }, [farmId]);
 
@@ -113,10 +113,11 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        setAlerts(data);
+        // El backend devuelve { success: true, data: [] }, aseguramos usar el array
+        setAlerts(Array.isArray(data) ? data : (data.data || []));
       }
     } catch (error) {
       console.error('Error fetching alerts:', error);
@@ -133,7 +134,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
@@ -147,7 +148,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
     try {
       const token = localStorage.getItem('token');
       const updatedSettings = { ...settings, ...newSettings };
-      
+
       const response = await fetch(`/api/alerts/settings`, {
         method: 'PUT',
         headers: {
@@ -156,7 +157,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
         },
         body: JSON.stringify({ farmId, settings: updatedSettings })
       });
-      
+
       if (response.ok) {
         setSettings(updatedSettings);
       }
@@ -174,8 +175,8 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
           'Authorization': `Bearer ${token}`
         }
       });
-      
-      setAlerts(alerts.map(alert => 
+
+      setAlerts(alerts.map(alert =>
         alert.id === alertId ? { ...alert, isRead: true } : alert
       ));
     } catch (error) {
@@ -192,8 +193,8 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
           'Authorization': `Bearer ${token}`
         }
       });
-      
-      setAlerts(alerts.map(alert => 
+
+      setAlerts(alerts.map(alert =>
         alert.id === alertId ? { ...alert, isActive: false } : alert
       ));
     } catch (error) {
@@ -212,11 +213,11 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
         },
         body: JSON.stringify({ action })
       });
-      
-      setAlerts(alerts.map(alert => 
+
+      setAlerts(alerts.map(alert =>
         alert.id === alertId ? { ...alert, actionTaken: true } : alert
       ));
-      
+
       onAlertAction?.(alertId, action);
     } catch (error) {
       console.error('Error taking action:', error);
@@ -347,9 +348,8 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
           ) : (
             <div className="space-y-4">
               {activeAlerts.map((alert) => (
-                <Card key={alert.id} className={`border-l-4 ${getSeverityColor(alert.severity)} ${
-                  !alert.isRead ? 'shadow-md' : ''
-                }`}>
+                <Card key={alert.id} className={`border-l-4 ${getSeverityColor(alert.severity)} ${!alert.isRead ? 'shadow-md' : ''
+                  }`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
@@ -366,16 +366,16 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                               </Badge>
                             )}
                           </div>
-                          
+
                           <p className="text-sm text-gray-600 mb-2">{alert.message}</p>
-                          
+
                           {alert.lotName && (
                             <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
                               <Calendar className="h-3 w-3" />
                               <span>Lote: {alert.lotName}</span>
                             </div>
                           )}
-                          
+
                           {alert.currentValue && alert.threshold && (
                             <div className="text-sm mb-2">
                               <span className="text-gray-600">Valor actual: </span>
@@ -384,7 +384,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                               <span className="font-bold">{alert.threshold.toFixed(1)}%</span>
                             </div>
                           )}
-                          
+
                           {alert.weatherData && (
                             <div className="grid grid-cols-3 gap-2 text-xs bg-blue-50 p-2 rounded mb-2">
                               <div className="flex items-center gap-1">
@@ -401,7 +401,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                               </div>
                             </div>
                           )}
-                          
+
                           {alert.recommendations.length > 0 && (
                             <div className="mt-2">
                               <p className="text-xs font-medium text-gray-700 mb-1">Recomendaciones:</p>
@@ -415,13 +415,13 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                               </ul>
                             </div>
                           )}
-                          
+
                           <p className="text-xs text-gray-500 mt-2">
                             {new Date(alert.createdAt).toLocaleString()}
                           </p>
                         </div>
                       </div>
-                      
+
                       <div className="flex flex-col gap-2 ml-4">
                         {!alert.isRead && (
                           <Button
@@ -433,7 +433,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                             Marcar leída
                           </Button>
                         )}
-                        
+
                         {!alert.actionTaken && alert.severity !== 'LOW' && (
                           <Button
                             size="sm"
@@ -443,7 +443,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                             Tomar Acción
                           </Button>
                         )}
-                        
+
                         <Button
                           size="sm"
                           variant="ghost"
@@ -505,7 +505,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                   onCheckedChange={(checked) => updateSettings({ thresholdAlerts: checked })}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">Alertas Climáticas</p>
@@ -516,7 +516,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                   onCheckedChange={(checked) => updateSettings({ weatherAlerts: checked })}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">Recordatorios de Monitoreo</p>
@@ -527,7 +527,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                   onCheckedChange={(checked) => updateSettings({ monitoringReminders: checked })}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">Recordatorios de Tratamiento</p>
@@ -538,7 +538,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                   onCheckedChange={(checked) => updateSettings({ treatmentReminders: checked })}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">Alertas de Resistencia</p>
@@ -570,7 +570,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                   onCheckedChange={(checked) => updateSettings({ pushNotifications: checked })}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4" />
@@ -584,7 +584,7 @@ const SmartAlerts: React.FC<SmartAlertsProps> = ({
                   onCheckedChange={(checked) => updateSettings({ emailNotifications: checked })}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />

@@ -154,7 +154,7 @@ export interface EnlaceModulo {
   parametros?: Record<string, any>;
 }
 
-export type CategoriaConsulta = 
+export type CategoriaConsulta =
   | 'plagas_enfermedades'
   | 'fertilizacion'
   | 'normativas'
@@ -386,3 +386,36 @@ export interface EstadisticasUso {
   satisfaccionPromedio: number;
   ultimoReset: Date;
 }
+
+// ==========================================
+// English Aliases / Interfaces for Compatibility with OfflineDB
+// ==========================================
+
+export type AgentType = TipoAgente;
+export type ProcessingStatus = EstadoProcesamiento;
+
+export interface PhytosanitaryAnalysis extends DiagnosticoIA { }
+
+export interface PredictiveAnalysis extends DatosPrediccion { }
+
+export interface RAGQuery extends ConsultaRAG { }
+
+export interface OptimizationAnalysis extends MetricasOptimizacion { }
+
+export interface AIAnalysisResult {
+  id: string;
+  requestId: string;
+  agentType: AgentType;
+  status: ProcessingStatus;
+  result: any;
+  confidence: number;
+  processedAt: Date;
+  metadata?: any;
+  error?: string;
+}
+
+export interface AIAgentConfig extends ConfiguracionAgente { }
+
+export interface AISystemStatus extends EstadoSistemaIA { }
+
+export interface AIProcessingQueue extends TareaIA { }

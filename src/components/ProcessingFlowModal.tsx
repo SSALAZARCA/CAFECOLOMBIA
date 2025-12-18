@@ -7,16 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { 
-  ArrowRight, 
-  Loader2, 
-  CheckCircle, 
-  Clock, 
+import {
+  ArrowRight,
+  Loader2,
+  CheckCircle,
+  Clock,
   Thermometer,
   Droplets,
   Package,
-  Truck
+  Truck,
+  Settings
 } from 'lucide-react';
+import { offlineDB } from '@/utils/offlineDB';
 
 interface Microlot {
   id: string;
@@ -44,6 +46,7 @@ const PROCESSING_STAGES = [
   { key: 'PROCESSING', label: 'Beneficio', icon: Droplets, color: 'bg-blue-500' },
   { key: 'DRYING', label: 'Secado', icon: Thermometer, color: 'bg-orange-500' },
   { key: 'STORAGE', label: 'Almacenamiento', icon: Package, color: 'bg-purple-500' },
+  { key: 'MILLING', label: 'Trilla', icon: Settings, color: 'bg-indigo-500' },
   { key: 'EXPORT_READY', label: 'Listo para Exportación', icon: Truck, color: 'bg-gray-500' }
 ];
 
@@ -55,8 +58,9 @@ const PROCESSING_TYPES = [
 ];
 
 const DRYING_METHODS = [
-  { value: 'SUN_DRIED', label: 'Secado al Sol' },
-  { value: 'MECHANICAL', label: 'Secado Mecánico' },
+  { value: 'SUN_DRIED', label: 'Secado al Sol (Patio)' },
+  { value: 'PARABOLIC', label: 'Marquesina / Parabólico' },
+  { value: 'MECHANICAL', label: 'Secado Mecánico (Silo)' },
   { value: 'MIXED', label: 'Mixto' }
 ];
 
@@ -71,6 +75,9 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
     finalMoisture: '',
     storageLocation: '',
     storageConditions: '',
+    millingYield: '',
+    millingPurpose: '',
+    defectsPercentage: '',
     notes: ''
   });
 
@@ -86,6 +93,9 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
         finalMoisture: '',
         storageLocation: '',
         storageConditions: '',
+        millingYield: '',
+        millingPurpose: '', // Added state
+        defectsPercentage: '',
         notes: ''
       });
     }
@@ -119,47 +129,26 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
 
     try {
       setSubmitting(true);
-      const token = localStorage.getItem('token');
 
-      // Create traceability event
-      const eventResponse = await fetch('/api/traceability/events', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          microlotId: microlot.id,
-          eventType: getEventTypeForStage(nextStage.key),
-          description: getEventDescription(nextStage.key),
-          metadata: getMetadataForStage(nextStage.key)
-        })
+      // Create traceability event in OfflineDB
+      await offlineDB.traceabilityEvents.add({
+        microlotId: microlot.id,
+        stage: nextStage.key as any,
+        timestamp: new Date().toISOString(),
+        description: getEventDescription(nextStage.key),
+        data: getMetadataForStage(nextStage.key),
+        pendingSync: true,
+        action: 'create'
       });
 
-      if (!eventResponse.ok) {
-        throw new Error('Error al crear evento de trazabilidad');
-      }
+      // Update microlot status (If we had a microlots table, but for now the events drive the status)
+      // Since status is dynamic in Traceability.tsx, adding the event is enough for now, 
+      // providing we update Traceability.tsx to read it.
 
-      // Update microlot status
-      const updateResponse = await fetch(`/api/traceability/microlots/${microlot.id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          status: nextStage.key,
-          notes: formData.notes
-        })
-      });
+      toast.success(`Microlote avanzado a: ${nextStage.label}`);
+      onSuccess();
+      onClose();
 
-      if (updateResponse.ok) {
-        toast.success(`Microlote avanzado a: ${nextStage.label}`);
-        onSuccess();
-        onClose();
-      } else {
-        throw new Error('Error al actualizar estado del microlote');
-      }
     } catch (error) {
       console.error('Error:', error);
       toast.error('Error al avanzar etapa');
@@ -200,6 +189,16 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
           return false;
         }
         break;
+      case 'MILLING':
+        if (!formData.millingYield) {
+          toast.error('Ingresa el rendimiento de trilla');
+          return false;
+        }
+        if (!formData.millingPurpose) {
+          toast.error('Selecciona el destino de la trilla');
+          return false;
+        }
+        break;
     }
     return true;
   };
@@ -209,6 +208,7 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
       case 'PROCESSING': return 'PROCESSING_START';
       case 'DRYING': return 'DRYING_START';
       case 'STORAGE': return 'STORAGE_START';
+      case 'MILLING': return 'MILLING_START';
       case 'EXPORT_READY': return 'EXPORT_PREPARATION';
       default: return 'STATUS_CHANGE';
     }
@@ -219,6 +219,7 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
       case 'PROCESSING': return `Inicio de procesamiento ${formData.processingType}`;
       case 'DRYING': return `Inicio de secado ${formData.dryingMethod}`;
       case 'STORAGE': return `Almacenamiento en ${formData.storageLocation}`;
+      case 'MILLING': return `Trilla con rendimiento del ${formData.millingYield}%`;
       case 'EXPORT_READY': return 'Preparación para exportación';
       default: return `Cambio de estado a ${stage}`;
     }
@@ -226,7 +227,7 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
 
   const getMetadataForStage = (stage: string) => {
     const metadata: any = {};
-    
+
     switch (stage) {
       case 'PROCESSING':
         metadata.processingType = formData.processingType;
@@ -240,6 +241,11 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
         metadata.finalMoisture = formData.finalMoisture;
         metadata.storageLocation = formData.storageLocation;
         metadata.storageConditions = formData.storageConditions;
+        break;
+      case 'MILLING':
+        metadata.millingYield = formData.millingYield;
+        metadata.defectsPercentage = formData.defectsPercentage;
+        metadata.millingPurpose = formData.millingPurpose; // Added field
         break;
     }
 
@@ -363,9 +369,62 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
           <div className="space-y-4">
             <div className="bg-green-50 p-4 rounded-lg">
               <p className="text-green-800">
-                El microlote está listo para ser preparado para exportación. 
+                El microlote está listo para ser preparado para exportación.
                 Se generarán automáticamente los documentos necesarios.
               </p>
+            </div>
+          </div>
+        );
+
+      case 'MILLING':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Propósito de Trilla *</Label>
+              <Select
+                value={formData.millingPurpose}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, millingPurpose: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona el propósito" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[
+                    { value: 'EXPORT', label: 'Exportación' },
+                    { value: 'NATIONAL', label: 'Consumo Nacional' },
+                    { value: 'SAMPLE', label: 'Muestra Comercial' }
+                  ].map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Rendimiento de Trilla (%) *</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                placeholder="Ej: 75.5"
+                value={formData.millingYield}
+                onChange={(e) => setFormData(prev => ({ ...prev, millingYield: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Porcentaje de Defectos (%)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                placeholder="Ej: 3.5"
+                value={formData.defectsPercentage}
+                onChange={(e) => setFormData(prev => ({ ...prev, defectsPercentage: e.target.value }))}
+              />
             </div>
           </div>
         );
@@ -382,7 +441,7 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <ArrowRight className="h-5 w-5 mr-2" />
@@ -429,15 +488,15 @@ export default function ProcessingFlowModal({ isOpen, onClose, microlot, onSucce
                     <div className="flex flex-col items-center min-w-0 flex-shrink-0">
                       <div className={`
                         w-12 h-12 rounded-full flex items-center justify-center text-white
-                        ${isCompleted ? 'bg-green-500' : 
-                          isCurrent ? stage.color : 
-                          isNext ? 'bg-blue-200' : 'bg-gray-300'}
+                        ${isCompleted ? 'bg-green-500' :
+                          isCurrent ? stage.color :
+                            isNext ? 'bg-blue-200' : 'bg-gray-300'}
                       `}>
                         <IconComponent className="h-6 w-6" />
                       </div>
                       <span className={`
                         text-xs mt-2 text-center
-                        ${isCurrent ? 'font-medium text-blue-600' : 
+                        ${isCurrent ? 'font-medium text-blue-600' :
                           isCompleted ? 'text-green-600' : 'text-gray-500'}
                       `}>
                         {stage.label}

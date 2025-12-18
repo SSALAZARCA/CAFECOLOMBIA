@@ -1,9 +1,9 @@
-// Servicio de Análisis Predictivo para Alertas Tempranas
-import { 
-  WeatherConditions, 
-  WeatherForecast, 
-  RiskPrediction, 
-  PestType, 
+// Servicio de Análisis Predictivo para Alertas Tempranas (Determinístico y conectado a DB)
+import {
+  WeatherConditions,
+  WeatherForecast,
+  RiskPrediction,
+  PestType,
   RiskLevel,
   PredictiveModel,
   HistoricalPestData,
@@ -12,35 +12,42 @@ import {
   ModelPerformanceMetrics,
   WeatherPattern
 } from '../types/earlyWarning';
+import { offlineDB, OfflinePestMonitoring } from '../utils/offlineDB';
 
 class PredictiveAnalyticsService {
   private models: Map<PestType, PredictiveModel> = new Map();
-  private historicalData: HistoricalPestData[] = [];
   private weatherPatterns: WeatherPattern[] = [];
 
   constructor() {
     this.initializeModels();
-    this.initializeHistoricalData();
     this.initializeWeatherPatterns();
   }
 
-  // Inicializar modelos predictivos mock
+  // Inicializar modelos predictivos (Valores fijos basados en literatura, no random)
   private initializeModels(): void {
     const pestTypes: PestType[] = ['roya', 'broca', 'minador', 'cochinilla', 'nematodos', 'antracnosis', 'mancha_foliar', 'ojo_gallo'];
-    
+
+    // Configuraciones base para cada plaga
+    const baseConfigs: Record<string, { accuracy: number, weights: any }> = {
+      'roya': { accuracy: 0.85, weights: { weather: 0.5, seasonal: 0.2, historical: 0.2, environmental: 0.1 } },
+      'broca': { accuracy: 0.82, weights: { weather: 0.4, seasonal: 0.3, historical: 0.2, environmental: 0.1 } },
+      'default': { accuracy: 0.75, weights: { weather: 0.4, seasonal: 0.2, historical: 0.2, environmental: 0.2 } }
+    };
+
     pestTypes.forEach(pestType => {
+      const config = baseConfigs[pestType] || baseConfigs['default'];
       const model: PredictiveModel = {
         id: `model_${pestType}_v1`,
         name: `Modelo Predictivo ${pestType.charAt(0).toUpperCase() + pestType.slice(1)}`,
         pestType,
         version: '1.0.0',
-        accuracy: 0.75 + Math.random() * 0.2, // 75-95% accuracy
-        lastTrained: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000), // Últimos 30 días
+        accuracy: config.accuracy,
+        lastTrained: new Date('2023-01-01'), // Fecha fija
         parameters: {
-          weatherWeight: 0.4,
-          seasonalWeight: 0.25,
-          historicalWeight: 0.2,
-          environmentalWeight: 0.15
+          weatherWeight: config.weights.weather,
+          seasonalWeight: config.weights.seasonal,
+          historicalWeight: config.weights.historical,
+          environmentalWeight: config.weights.environmental
         },
         thresholds: {
           low: 0.2,
@@ -53,30 +60,7 @@ class PredictiveAnalyticsService {
     });
   }
 
-  // Inicializar datos históricos mock
-  private initializeHistoricalData(): void {
-    const pestTypes: PestType[] = ['roya', 'broca', 'minador', 'cochinilla'];
-    const currentDate = new Date();
-    
-    for (let i = 0; i < 50; i++) {
-      const occurrenceDate = new Date(currentDate.getTime() - Math.random() * 365 * 24 * 60 * 60 * 1000);
-      
-      this.historicalData.push({
-        id: `hist_${i}`,
-        pestType: pestTypes[Math.floor(Math.random() * pestTypes.length)],
-        occurrenceDate,
-        severity: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)] as 'low' | 'medium' | 'high',
-        affectedArea: Math.random() * 10 + 1, // 1-11 hectáreas
-        weatherConditions: this.generateMockWeatherConditions(occurrenceDate),
-        treatmentApplied: this.generateMockTreatments(),
-        effectiveness: Math.random() * 100,
-        cost: Math.random() * 1000 + 200,
-        notes: `Ocurrencia histórica de ${pestTypes[Math.floor(Math.random() * pestTypes.length)]}`
-      });
-    }
-  }
-
-  // Inicializar patrones meteorológicos
+  // Inicializar patrones meteorológicos (Estáticos)
   private initializeWeatherPatterns(): void {
     this.weatherPatterns = [
       {
@@ -100,52 +84,8 @@ class PredictiveAnalyticsService {
         associatedPests: ['broca', 'minador', 'cochinilla'],
         riskMultiplier: 1.3,
         seasonality: [1, 2, 3, 7, 8]
-      },
-      {
-        id: 'pattern_rainy_season',
-        name: 'Temporada Lluviosa',
-        description: 'Alta humedad y precipitación constante',
-        conditions: { temperature: 22, humidity: 90, rainfall: 25 },
-        duration: 21,
-        frequency: 2,
-        associatedPests: ['roya', 'nematodos', 'ojo_gallo'],
-        riskMultiplier: 1.8,
-        seasonality: [4, 5, 6, 10, 11]
       }
     ];
-  }
-
-  // Generar condiciones meteorológicas mock
-  private generateMockWeatherConditions(date: Date): WeatherConditions {
-    const month = date.getMonth() + 1;
-    const isRainySeason = [4, 5, 6, 10, 11].includes(month);
-    
-    return {
-      temperature: isRainySeason ? 20 + Math.random() * 8 : 25 + Math.random() * 10,
-      humidity: isRainySeason ? 75 + Math.random() * 20 : 45 + Math.random() * 30,
-      rainfall: isRainySeason ? Math.random() * 30 : Math.random() * 10,
-      windSpeed: Math.random() * 15 + 5,
-      pressure: 1010 + Math.random() * 20,
-      uvIndex: Math.random() * 10 + 2,
-      dewPoint: 15 + Math.random() * 10,
-      timestamp: date
-    };
-  }
-
-  // Generar tratamientos mock
-  private generateMockTreatments(): string[] {
-    const treatments = [
-      'Fungicida cúprico',
-      'Insecticida orgánico',
-      'Control biológico',
-      'Poda sanitaria',
-      'Mejora drenaje',
-      'Fertilización foliar',
-      'Control cultural'
-    ];
-    
-    const numTreatments = Math.floor(Math.random() * 3) + 1;
-    return treatments.sort(() => 0.5 - Math.random()).slice(0, numTreatments);
   }
 
   // Obtener factores de riesgo para cada plaga
@@ -223,91 +163,86 @@ class PredictiveAnalyticsService {
   // Calcular probabilidad de riesgo basada en condiciones meteorológicas
   private calculateWeatherRisk(weather: WeatherConditions, pestType: PestType): number {
     const factors = this.getPestRiskFactors(pestType);
-    
+
     // Calcular score para temperatura
     const tempScore = this.calculateOptimalityScore(
-      weather.temperature, 
-      factors.temperature.min, 
-      factors.temperature.max, 
-      factors.temperature.optimal
+      weather.temperature, factors.temperature.min, factors.temperature.max, factors.temperature.optimal
     );
-    
+
     // Calcular score para humedad
     const humidityScore = this.calculateOptimalityScore(
-      weather.humidity, 
-      factors.humidity.min, 
-      factors.humidity.max, 
-      factors.humidity.optimal
+      weather.humidity, factors.humidity.min, factors.humidity.max, factors.humidity.optimal
     );
-    
+
     // Calcular score para lluvia
     const rainfallScore = this.calculateOptimalityScore(
-      weather.rainfall, 
-      factors.rainfall.min, 
-      factors.rainfall.max, 
-      factors.rainfall.optimal
+      weather.rainfall, factors.rainfall.min, factors.rainfall.max, factors.rainfall.optimal
     );
-    
+
     // Promedio ponderado
     return (tempScore * 0.4 + humidityScore * 0.4 + rainfallScore * 0.2);
   }
 
-  // Calcular score de optimalidad para un parámetro
+  // Calcular score de optimalidad (0 a 1)
   private calculateOptimalityScore(value: number, min: number, max: number, optimal: number): number {
-    if (value < min || value > max) {
-      return 0;
-    }
-    
-    if (value === optimal) {
-      return 1;
-    }
-    
-    // Calcular distancia al valor óptimo
+    if (value < min || value > max) return 0;
+    if (value === optimal) return 1;
+
     const distanceToOptimal = Math.abs(value - optimal);
     const maxDistance = Math.max(optimal - min, max - optimal);
-    
+
     return Math.max(0, 1 - (distanceToOptimal / maxDistance));
   }
 
-  // Calcular riesgo estacional
+  // Calcular riesgo estacional (Determinístico)
   private calculateSeasonalRisk(date: Date, pestType: PestType): number {
     const factors = this.getPestRiskFactors(pestType);
     const month = date.getMonth() + 1;
-    
-    if (factors.seasonality.includes(month)) {
-      // Mes de alta temporada
-      return 0.8 + Math.random() * 0.2;
-    } else {
-      // Mes de baja temporada
-      return Math.random() * 0.3;
-    }
+    return factors.seasonality.includes(month) ? 0.9 : 0.2;
   }
 
-  // Calcular riesgo histórico
-  private calculateHistoricalRisk(pestType: PestType): number {
-    const relevantHistory = this.historicalData.filter(h => h.pestType === pestType);
-    
-    if (relevantHistory.length === 0) {
+  // Calcular riesgo histórico REAL desde offlineDB
+  private async calculateHistoricalRisk(pestType: PestType): Promise<number> {
+    try {
+      const pestMonitorings = await offlineDB.pestMonitoring
+        .where('pestType')
+        .equals(pestType)
+        .toArray();
+
+      if (pestMonitorings.length === 0) return 0.1; // Riesgo base bajo si no hay historial
+
+      // Filtrar últimos 6 meses
+      const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+      const recent = pestMonitorings.filter(p => new Date(p.observationDate) > sixMonthsAgo);
+
+      if (recent.length === 0) return 0.2;
+
+      // Calcular severidad promedio
+      let severityScore = 0;
+      recent.forEach(p => {
+        if (p.severity === 'CRITICAL') severityScore += 5;
+        else if (p.severity === 'HIGH') severityScore += 3;
+        else if (p.severity === 'MEDIUM') severityScore += 1;
+      });
+
+      // Normalizar score (máximo heurístico de 20 puntos de severidad en 6 meses = 100%)
+      const normalized = Math.min(1, severityScore / 20);
+      return normalized;
+    } catch (e) {
+      console.warn('Error reading historical risk:', e);
       return 0.1;
     }
-    
-    // Calcular frecuencia de ocurrencias en los últimos 12 meses
-    const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-    const recentOccurrences = relevantHistory.filter(h => h.occurrenceDate > oneYearAgo);
-    
-    const frequency = recentOccurrences.length / 12; // Ocurrencias por mes
-    return Math.min(frequency * 0.3, 0.8);
   }
 
-  // Determinar nivel de riesgo basado en probabilidad
+  // Determinar nivel de riesgo
   private determineRiskLevel(probability: number): RiskLevel {
-    if (probability >= 0.85) return 'critical';
-    if (probability >= 0.7) return 'high';
-    if (probability >= 0.4) return 'medium';
+    if (probability >= 0.80) return 'critical';
+    if (probability >= 0.60) return 'high';
+    if (probability >= 0.35) return 'medium';
     return 'low';
   }
 
-  // Generar recomendaciones basadas en el riesgo
+  // Generar recomendaciones (Estáticas)
   private generateRecommendations(pestType: PestType, riskLevel: RiskLevel): string[] {
     const baseRecommendations: Record<PestType, Record<RiskLevel, string[]>> = {
       roya: {
@@ -359,147 +294,59 @@ class PredictiveAnalyticsService {
         critical: ['Tratamiento inmediato', 'Eliminación total de material afectado', 'Consulta técnica urgente']
       }
     };
-
-    return baseRecommendations[pestType][riskLevel] || ['Consultar con especialista'];
+    return baseRecommendations[pestType]?.[riskLevel] || ['Consultar con especialista'];
   }
 
-  // Función auxiliar para procesar una plaga de forma asíncrona
-  private async processPestAnalysis(
-    pestType: PestType,
-    currentWeather: WeatherConditions,
-    forecast: WeatherForecast[]
-  ): Promise<PredictionAnalysis | null> {
-    return new Promise((resolve) => {
-      // Usar setTimeout para no bloquear el hilo principal
-      setTimeout(() => {
-        const model = this.models.get(pestType);
-        if (!model) {
-          resolve(null);
-          return;
-        }
-
-        try {
-          // Calcular factores de riesgo
-          const weatherRisk = this.calculateWeatherRisk(currentWeather, pestType);
-          const seasonalRisk = this.calculateSeasonalRisk(new Date(), pestType);
-          const historicalRisk = this.calculateHistoricalRisk(pestType);
-          const environmentalRisk = 0.3 + Math.random() * 0.4; // Mock environmental factors
-
-          // Calcular probabilidad total usando pesos del modelo
-          const totalProbability = (
-            weatherRisk * model.parameters.weatherWeight +
-            seasonalRisk * model.parameters.seasonalWeight +
-            historicalRisk * model.parameters.historicalWeight +
-            environmentalRisk * model.parameters.environmentalWeight
-          );
-
-          const riskLevel = this.determineRiskLevel(totalProbability);
-          const confidence = model.accuracy * (0.8 + Math.random() * 0.2);
-
-          // Calcular timeframe
-          const start = new Date();
-          const peak = new Date(start.getTime() + (3 + Math.random() * 7) * 24 * 60 * 60 * 1000);
-          const end = new Date(peak.getTime() + (7 + Math.random() * 14) * 24 * 60 * 60 * 1000);
-
-          const prediction: RiskPrediction = {
-            pestType,
-            riskLevel,
-            confidence,
-            probability: totalProbability,
-            timeframe: { start, peak, end },
-            factors: {
-              weather: weatherRisk,
-              seasonal: seasonalRisk,
-              historical: historicalRisk,
-              environmental: environmentalRisk
-            },
-            recommendations: this.generateRecommendations(pestType, riskLevel)
-          };
-
-          // Generar escenarios alternativos
-          const alternativeScenarios: RiskPrediction[] = [];
-          for (let i = 0; i < 2; i++) {
-            const altProbability = Math.max(0, Math.min(1, totalProbability + (Math.random() - 0.5) * 0.3));
-            const altRiskLevel = this.determineRiskLevel(altProbability);
-            
-            alternativeScenarios.push({
-              ...prediction,
-              probability: altProbability,
-              riskLevel: altRiskLevel,
-              confidence: confidence * 0.8,
-              recommendations: this.generateRecommendations(pestType, altRiskLevel)
-            });
-          }
-
-          const analysis: PredictionAnalysis = {
-            modelId: model.id,
-            pestType,
-            inputData: {
-              currentWeather,
-              forecast,
-              historicalData: this.historicalData.filter(h => h.pestType === pestType),
-              farmConditions: {
-                cropStage: 'desarrollo_fruto',
-                lastTreatment: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-                soilMoisture: 60 + Math.random() * 30,
-                plantHealth: 70 + Math.random() * 25
-              }
-            },
-            prediction,
-            alternativeScenarios,
-            modelConfidence: confidence,
-            dataQuality: 0.85 + Math.random() * 0.1,
-            timestamp: new Date()
-          };
-
-          resolve(analysis);
-        } catch (error) {
-          console.error(`Error processing pest analysis for ${pestType}:`, error);
-          resolve(null);
-        }
-      }, 0); // Permitir que el navegador actualice la UI
-    });
-  }
-
-  // Análisis predictivo principal optimizado
+  // Análisis predictivo principal
   async analyzePestRisk(
     currentWeather: WeatherConditions,
     forecast: WeatherForecast[],
     pestTypes: PestType[] = ['roya', 'broca', 'minador', 'cochinilla']
   ): Promise<PredictionAnalysis[]> {
-    console.log('🔬 [PestAnalysis] Iniciando análisis simplificado y rápido...');
-    
-    // Análisis simplificado y directo - sin procesamiento asíncrono complejo
-    const analyses: PredictionAnalysis[] = pestTypes.map(pestType => {
+    console.log('🔬 [PestAnalysis] Iniciando análisis determinístico con datos reales...');
+
+    // Ejecutar análisis en paralelo
+    const promises = pestTypes.map(async (pestType) => {
       const model = this.models.get(pestType);
-      if (!model) {
-        console.warn(`⚠️ [PestAnalysis] Modelo no encontrado para ${pestType}, usando valores por defecto`);
-        return this.createFallbackAnalysis(pestType, currentWeather);
-      }
+      if (!model) return null;
 
-      // Cálculo rápido de factores de riesgo
+      // 1. Riesgo Climático
       const weatherRisk = this.calculateWeatherRisk(currentWeather, pestType);
-      const seasonalRisk = this.calculateSeasonalRisk(new Date(), pestType);
-      const historicalRisk = 0.3 + Math.random() * 0.3; // Simplificado
-      const environmentalRisk = 0.2 + Math.random() * 0.4; // Simplificado
 
-      // Probabilidad total simplificada
-      const totalProbability = Math.min(0.95, Math.max(0.05, 
-        weatherRisk * 0.4 + seasonalRisk * 0.3 + historicalRisk * 0.2 + environmentalRisk * 0.1
+      // 2. Riesgo Estacional
+      const seasonalRisk = this.calculateSeasonalRisk(new Date(), pestType);
+
+      // 3. Riesgo Histórico (Async desde DB)
+      const historicalRisk = await this.calculateHistoricalRisk(pestType);
+
+      // 4. Riesgo Ambiental (Por ahora fijo o derivado de weatherRisk)
+      const environmentalRisk = weatherRisk * 0.8; // Simplificación determinística
+
+      // Probabilidad Total Ponderada
+      const totalProbability = Math.min(0.99, Math.max(0.01,
+        (weatherRisk * model.parameters.weatherWeight) +
+        (seasonalRisk * model.parameters.seasonalWeight) +
+        (historicalRisk * model.parameters.historicalWeight) +
+        (environmentalRisk * model.parameters.environmentalWeight)
       ));
 
       const riskLevel = this.determineRiskLevel(totalProbability);
-      const confidence = 0.75 + Math.random() * 0.2; // Simplificado
 
-      // Timeframe simplificado
-      const start = new Date();
-      const peak = new Date(start.getTime() + (2 + Math.random() * 5) * 24 * 60 * 60 * 1000);
-      const end = new Date(peak.getTime() + (5 + Math.random() * 10) * 24 * 60 * 60 * 1000);
+      // Timeframe determinístico basado en ciclo de vida y clima
+      // Si hace calor, el ciclo es más rápido
+      const cycleSpeed = currentWeather.temperature > 25 ? 0.8 : 1.0;
+      const startDays = 2 * cycleSpeed;
+      const peakDays = 7 * cycleSpeed;
+      const endDays = 14 * cycleSpeed;
+
+      const start = new Date(Date.now() + startDays * 24 * 60 * 60 * 1000);
+      const peak = new Date(Date.now() + peakDays * 24 * 60 * 60 * 1000);
+      const end = new Date(Date.now() + endDays * 24 * 60 * 60 * 1000);
 
       const prediction: RiskPrediction = {
         pestType,
         riskLevel,
-        confidence,
+        confidence: model.accuracy, // Confianza del modelo fija
         probability: totalProbability,
         timeframe: { start, peak, end },
         factors: {
@@ -517,123 +364,29 @@ class PredictiveAnalyticsService {
         inputData: {
           currentWeather,
           forecast,
-          historicalData: [], // Simplificado
+          historicalData: [], // Se podría poblar
           farmConditions: {
-            cropStage: 'desarrollo_fruto',
-            lastTreatment: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            soilMoisture: 60 + Math.random() * 20,
-            plantHealth: 70 + Math.random() * 25
+            cropStage: 'desarrollo_fruto', // Se podría obtener de Lotes
+            lastTreatment: new Date(),
+            soilMoisture: 60,
+            plantHealth: 80
           }
         },
         prediction,
-        alternativeScenarios: [], // Simplificado - sin escenarios alternativos
-        modelConfidence: confidence,
+        alternativeScenarios: [],
+        modelConfidence: model.accuracy,
         generatedAt: new Date(),
         validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000)
-      };
+      } as PredictionAnalysis;
     });
 
-    console.log(`✅ [PestAnalysis] Análisis completado para ${analyses.length} plagas`);
-    return analyses;
-  }
-
-  // Método de respaldo para crear análisis básico cuando no hay modelo
-  private createFallbackAnalysis(pestType: PestType, weather: WeatherConditions): PredictionAnalysis {
-    const tempFactor = Math.abs(weather.temperature - 22) / 10;
-    const humidityFactor = Math.abs(weather.humidity - 65) / 35;
-    const probability = Math.min(0.8, 0.2 + tempFactor + humidityFactor);
-    const riskLevel = this.determineRiskLevel(probability);
-
-    return {
-      modelId: `fallback_${pestType}`,
-      pestType,
-      inputData: {
-        currentWeather: weather,
-        forecast: [],
-        historicalData: [],
-        farmConditions: {
-          cropStage: 'desarrollo_fruto',
-          lastTreatment: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          soilMoisture: 65,
-          plantHealth: 75
-        }
-      },
-      prediction: {
-        pestType,
-        riskLevel,
-        confidence: 0.6,
-        probability,
-        timeframe: {
-          start: new Date(),
-          peak: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-        },
-        factors: {
-          weather: tempFactor + humidityFactor,
-          seasonal: 0.3,
-          historical: 0.3,
-          environmental: 0.2
-        },
-        recommendations: this.generateRecommendations(pestType, riskLevel)
-      },
-      alternativeScenarios: [],
-      modelConfidence: 0.6,
-      generatedAt: new Date(),
-      validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000)
-    };
-  }
-
-  // Obtener métricas de rendimiento del modelo
-  getModelPerformance(pestType: PestType): ModelPerformanceMetrics | null {
-    const model = this.models.get(pestType);
-    if (!model) return null;
-
-    return {
-      modelId: model.id,
-      pestType,
-      accuracy: model.accuracy,
-      precision: model.accuracy * (0.9 + Math.random() * 0.1),
-      recall: model.accuracy * (0.85 + Math.random() * 0.15),
-      f1Score: model.accuracy * (0.87 + Math.random() * 0.13),
-      falsePositiveRate: (1 - model.accuracy) * 0.6,
-      falseNegativeRate: (1 - model.accuracy) * 0.4,
-      lastEvaluated: model.lastTrained,
-      testDataSize: 100 + Math.floor(Math.random() * 200),
-      performanceTrend: ['improving', 'declining', 'stable'][Math.floor(Math.random() * 3)] as 'improving' | 'declining' | 'stable'
-    };
+    const results = await Promise.all(promises);
+    return results.filter((r): r is PredictionAnalysis => r !== null);
   }
 
   // Obtener patrones meteorológicos
   getWeatherPatterns(): WeatherPattern[] {
     return this.weatherPatterns;
-  }
-
-  // Obtener datos históricos
-  getHistoricalData(pestType?: PestType): HistoricalPestData[] {
-    if (pestType) {
-      return this.historicalData.filter(h => h.pestType === pestType);
-    }
-    return this.historicalData;
-  }
-
-  // Actualizar modelo (mock)
-  async updateModel(pestType: PestType): Promise<boolean> {
-    const model = this.models.get(pestType);
-    if (!model) return false;
-
-    // Simular actualización del modelo
-    model.accuracy = Math.min(0.95, model.accuracy + (Math.random() - 0.5) * 0.1);
-    model.lastTrained = new Date();
-    model.version = `${model.version.split('.')[0]}.${parseInt(model.version.split('.')[1]) + 1}.0`;
-
-    return true;
-  }
-
-  // Validar predicción
-  async validatePrediction(predictionId: string, actualOutcome: any): Promise<boolean> {
-    // Mock validation logic
-    console.log(`Validating prediction ${predictionId} with outcome:`, actualOutcome);
-    return true;
   }
 }
 

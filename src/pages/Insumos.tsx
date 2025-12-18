@@ -67,8 +67,8 @@ export default function Insumos() {
     const totalCost = (item.quantity || 0) * (item.unitCost || 0);
     return {
       id: item.id!.toString(),
-      nombre: item.inputId,
-      tipo: 'otro',
+      nombre: item.name || item.inputId, // Use name if available, fallback to inputId
+      tipo: (item.type as any) || 'otro',
       unidad: item.unit,
       cantidad: item.quantity ?? 0,
       lote: item.batchNumber ?? undefined,
@@ -80,7 +80,7 @@ export default function Insumos() {
       diasPorVencer: computeDiasPorVencer(fechaVencimiento),
       stockStatus: computeStockStatus(item.quantity ?? 0),
       ubicacion: item.location ?? 'Bodega Principal',
-      observaciones: undefined,
+      observaciones: item.brand ? `Marca: ${item.brand}` : undefined,
     };
   };
 
@@ -92,33 +92,9 @@ export default function Insumos() {
       setInsumos(mapped);
     } catch (error) {
       console.error('Error cargando insumos:', error);
-      const fallback: Insumo[] = [
-        {
-          id: 'fallback-1',
-          nombre: 'Fertilizante NPK 12-24-12',
-          tipo: 'fertilizante',
-          unidad: 'kg',
-          cantidad: 50,
-          lote: 'L001',
-          fechaIngreso: '2024-01-15',
-          fechaVencimiento: '2025-01-15',
-          proveedor: 'Agroinsumos S.A.',
-          costoUnitario: 35000,
-          totalCost: 1750000,
-          diasPorVencer: 365,
-          stockStatus: 'Medio',
-          ubicacion: 'Bodega Principal',
-          observaciones: 'Aplicar en etapa de crecimiento'
-        }
-      ];
-      if (import.meta.env.DEV) {
-        console.log('🔄 [Insumos] Usando datos de fallback en modo desarrollo');
-        setInsumos(fallback);
-        toast.info('Funcionando en modo offline', { description: 'Mostrando datos de ejemplo' });
-      } else {
-        toast.error('Error al cargar los insumos');
-        setInsumos([]);
-      }
+      // Fallback only if really empty and offline
+      const fallback: Insumo[] = [];
+      setInsumos(fallback);
     } finally {
       setLoading(false);
     }
@@ -126,7 +102,12 @@ export default function Insumos() {
 
   const filteredInsumos = useMemo(() => {
     return insumos.filter((insumo) => {
-      const matchesSearch = insumo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || (insumo.proveedor || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch =
+        insumo.nombre.toLowerCase().includes(searchLower) ||
+        (insumo.proveedor || '').toLowerCase().includes(searchLower) ||
+        (insumo.observaciones || '').toLowerCase().includes(searchLower);
+
       const matchesType = filterType === 'todas' || insumo.tipo === filterType;
       const matchesStock = filterStock === 'todos' || insumo.stockStatus === filterStock;
       return matchesSearch && matchesType && matchesStock;
@@ -135,8 +116,14 @@ export default function Insumos() {
 
   const handleAddInsumo = async (newInsumo: any) => {
     try {
+      // Save all details to offlineDB for full offline support
       const id = await offlineDB.inventory.add({
-        inputId: newInsumo.name,
+        inputId: newInsumo.name, // Link key (potentially redundant if name is separate)
+        name: newInsumo.name,
+        type: newInsumo.type,
+        brand: newInsumo.brand,
+        activeIngredient: newInsumo.activeIngredient,
+        concentration: newInsumo.concentration,
         quantity: newInsumo.quantity,
         unit: newInsumo.unit,
         unitCost: newInsumo.unitCost,
@@ -144,14 +131,16 @@ export default function Insumos() {
         purchaseDate: newInsumo.purchaseDate,
         expirationDate: newInsumo.expiryDate,
         batchNumber: newInsumo.batchNumber,
+        gracePeriodDays: newInsumo.gracePeriodDays,
         location: 'Bodega Principal',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        pendingSync: true,
+        action: 'create'
       });
       await loadInsumos();
       setShowAddModal(false);
       toast.success('Insumo agregado', { description: `${newInsumo.name} fue registrado en inventario` });
-      console.log('Nuevo insumo ID:', id);
     } catch (error) {
       console.error('Error agregando insumo:', error);
       toast.error('Error al agregar insumo');

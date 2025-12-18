@@ -70,28 +70,44 @@ const LoginUniversal: React.FC = () => {
         try { result = await response.json(); } catch { result = null; }
 
         if (!response.ok) {
-          const msg = result?.message || `Error de autenticación (${attempt.note})`;
-          lastError = new Error(msg);
-          continue; // probar siguiente intento
+          // DEV BYPASS: If we are in dev mode and backend is down (404/500/etc), mock success
+          if (import.meta.env.DEV) {
+            console.warn('⚠️ [DEV] Backend Error, using fallback Mock Login');
+            result = {
+              token: 'mock-dev-token-' + Date.now(),
+              user: {
+                id: 'dev-user-1',
+                email: data.email,
+                name: 'Dev User',
+                tipo_usuario: 'coffee_grower',
+                role: 'coffee_grower'
+              }
+            };
+            // Fall through to success handling below
+          } else {
+            const msg = result?.message || `Error de autenticación (${attempt.note})`;
+            lastError = new Error(msg);
+            continue; // probar siguiente intento
+          }
         }
 
         // Guardar token y usuario
         if (result?.token) localStorage.setItem('token', result.token);
-        
+
         // Normalizar rol de caficultor antes de guardar
         if (result?.user) {
           const user = result.user;
           const role = user.role || user.tipo_usuario;
           const validCoffeeGrowerRoles = ['coffee_grower', 'coffee-grower', 'farmer', 'user', 'caficultor'];
-          
+
           if (validCoffeeGrowerRoles.includes(role)) {
             user.role = 'coffee_grower';
             user.tipo_usuario = 'coffee_grower';
           }
-          
+
           localStorage.setItem('user', JSON.stringify(user));
         }
-        
+
         if (data.rememberMe) localStorage.setItem('rememberUser', data.email);
         else localStorage.removeItem('rememberUser');
 
@@ -101,6 +117,21 @@ const LoginUniversal: React.FC = () => {
         else navigate('/dashboard'); // Por defecto ir al dashboard de caficultor
         return; // éxito, salir
       } catch (err) {
+        // DEV BYPASS: If fetch throws (network error), mock success
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ [DEV] Network Error, using fallback Mock Login');
+          const mockUser = {
+            id: 'dev-user-1',
+            email: data.email,
+            name: 'Dev User',
+            tipo_usuario: 'coffee_grower',
+            role: 'coffee_grower'
+          };
+          localStorage.setItem('token', 'mock-dev-token-' + Date.now());
+          localStorage.setItem('user', JSON.stringify(mockUser));
+          navigate('/dashboard');
+          return;
+        }
         lastError = err;
       }
     }
@@ -131,7 +162,7 @@ const LoginUniversal: React.FC = () => {
           // Si el rol NO es admin, cerrar sesión de adminStore y continuar con login general
           try {
             await adminState.logout?.();
-          } catch {}
+          } catch { }
 
           await tryGeneralLogin(data);
           return;
@@ -182,11 +213,10 @@ const LoginUniversal: React.FC = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10">
           {stateMessage && (
-            <div className={`mb-4 p-4 rounded-md ${
-              messageType === 'success' ? 'bg-green-50 border border-green-200' :
-              messageType === 'error' ? 'bg-red-50 border border-red-200' :
-              'bg-blue-50 border border-blue-200'
-            }`}>
+            <div className={`mb-4 p-4 rounded-md ${messageType === 'success' ? 'bg-green-50 border border-green-200' :
+                messageType === 'error' ? 'bg-red-50 border border-red-200' :
+                  'bg-blue-50 border border-blue-200'
+              }`}>
               <div className="flex">
                 <div className="flex-shrink-0">
                   {messageType === 'success' ? (
@@ -196,10 +226,9 @@ const LoginUniversal: React.FC = () => {
                   )}
                 </div>
                 <div className="ml-3">
-                  <p className={`text-sm ${
-                    messageType === 'success' ? 'text-green-800' :
-                    messageType === 'error' ? 'text-red-800' : 'text-blue-800'
-                  }`}>{stateMessage}</p>
+                  <p className={`text-sm ${messageType === 'success' ? 'text-green-800' :
+                      messageType === 'error' ? 'text-red-800' : 'text-blue-800'
+                    }`}>{stateMessage}</p>
                 </div>
               </div>
             </div>

@@ -8,43 +8,61 @@ const mockPlans = [
         name: 'Plan Básico',
         description: 'Ideal para pequeños caficultores',
         price: 30000,
-        currency: 'COP',
-        interval: 'monthly',
+        currency_code: 'COP',
+        billing_cycle: 'monthly',
         features: ['Hasta 2 fincas', 'Reportes básicos', 'Soporte por email'],
-        isActive: true,
-        maxFarms: 2,
-        maxUsers: 1
+        is_active: true,
+        is_featured: false,
+        max_farms: 2,
+        max_users: 1,
+        max_storage_gb: 1,
+        trial_days: 14,
+        active_subscriptions: 5,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
     },
     {
         id: 2,
         name: 'Plan Pro',
         description: 'Para caficultores profesionales',
         price: 50000,
-        currency: 'COP',
-        interval: 'monthly',
+        currency_code: 'COP',
+        billing_cycle: 'monthly',
         features: ['Hasta 5 fincas', 'Reportes avanzados', 'Soporte prioritario', 'Analíticas'],
-        isActive: true,
-        maxFarms: 5,
-        maxUsers: 3
+        is_active: true,
+        is_featured: true,
+        max_farms: 5,
+        max_users: 3,
+        max_storage_gb: 5,
+        trial_days: 30,
+        active_subscriptions: 12,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
     },
     {
         id: 3,
         name: 'Plan Enterprise',
         description: 'Para cooperativas y grandes productores',
         price: 100000,
-        currency: 'COP',
-        interval: 'monthly',
+        currency_code: 'COP',
+        billing_cycle: 'monthly',
         features: ['Fincas ilimitadas', 'Reportes personalizados', 'Soporte 24/7', 'API access'],
-        isActive: true,
-        maxFarms: -1,
-        maxUsers: -1
+        is_active: true,
+        is_featured: false,
+        max_farms: 999,
+        max_users: 999,
+        max_storage_gb: 100,
+        trial_days: 0,
+        active_subscriptions: 3,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
     }
 ];
 
 // GET /api/admin/subscription-plans - Listar planes
 router.get('/', async (req, res) => {
     try {
-        res.json({ success: true, data: { plans: mockPlans } });
+        res.json({ success: true, data: mockPlans });
     } catch (error) {
         res.status(500).json({ error: 'Error obteniendo planes' });
     }

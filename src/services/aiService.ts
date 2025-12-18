@@ -100,7 +100,7 @@ export class AIService {
       this.isOnline = true;
       this.processPendingAnalysis();
     });
-    
+
     window.addEventListener('offline', () => {
       this.isOnline = false;
     });
@@ -166,7 +166,7 @@ export class AIService {
 
     } catch (error) {
       console.error('Error processing AI analysis:', error);
-      
+
       // Marcar como fallido
       await offlineDB.updateAIAnalysisResult(analysisId, {
         status: 'failed',
@@ -253,7 +253,7 @@ export class AIService {
   private async processPendingAnalysis(): Promise<void> {
     try {
       const pendingAnalysis = await offlineDB.getAIAnalysisByStatus('pending');
-      
+
       for (const analysis of pendingAnalysis) {
         if (this.processingQueue.has(analysis.id)) continue;
 
@@ -343,7 +343,7 @@ export class AIService {
     try {
       // Intentar obtener desde backend primero
       const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
-      const endpoint = `${baseUrl}/api/ai/notifications`;
+      const endpoint = `${baseUrl}/api/notifications`;
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || localStorage.getItem('authToken')) : null;
