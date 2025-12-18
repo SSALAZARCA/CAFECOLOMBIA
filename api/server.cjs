@@ -29,7 +29,7 @@ if (!process.env.NODE_ENV) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5001;
 
 // Configuración de la base de datos (acepta ambas familias DB_* y MYSQL_*)
 const { dbConfig, pool } = require('./config/database.cjs');

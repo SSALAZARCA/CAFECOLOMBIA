@@ -52,7 +52,7 @@ services:
     restart: always
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 5001
       # Database connection
       DB_HOST: mysql
       DB_PORT: 3306
@@ -66,9 +66,9 @@ services:
       # JWT
       JWT_SECRET: ${JWT_SECRET:-changeme}
       # URL Configuration
-      VITE_API_URL: ${COOLIFY_URL:-http://localhost:3000}
+      VITE_API_URL: ${COOLIFY_URL:-http://localhost:5001}
     ports:
-      - "3000:3000"
+      - "5001:5001"
     volumes:
       - uploads_data:/app/uploads
       - logs_data:/app/logs

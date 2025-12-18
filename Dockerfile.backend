@@ -55,7 +55,7 @@ RUN npm run server:build
 FROM base AS runner
 
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=5001
 ENV HOST=0.0.0.0
 
 RUN mkdir -p /app/uploads /app/logs /app/backups
@@ -77,9 +77,9 @@ COPY --chown=cafeapp:nodejs ecosystem.config.cjs ./
 
 USER cafeapp
 
-EXPOSE 3001
+EXPOSE 5001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/ping || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:5001/api/ping || exit 1
 
 CMD ["node", "api/server.cjs"]

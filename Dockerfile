@@ -4,10 +4,10 @@ FROM node:20-alpine AS base
 
 # Instalar dependencias del sistema
 RUN apk add --no-cache \
-    mysql-client \
-    curl \
-    bash \
-    tzdata
+  mysql-client \
+  curl \
+  bash \
+  tzdata
 
 # Configurar zona horaria
 ENV TZ=America/Bogota
@@ -35,10 +35,10 @@ COPY scripts/ ./scripts/
 # ================================
 FROM base AS deps
 
-    # Instalar TODAS las dependencias (incluyendo devDependencies para el build)
-    # Usar --ignore-scripts para evitar que postinstall ejecute npm run build sin archivos fuente
-    RUN npm ci --ignore-scripts && npm cache clean --force
-    RUN cd api && npm ci && npm cache clean --force
+# Instalar TODAS las dependencias (incluyendo devDependencies para el build)
+# Usar --ignore-scripts para evitar que postinstall ejecute npm run build sin archivos fuente
+RUN npm ci --ignore-scripts && npm cache clean --force
+RUN cd api && npm ci && npm cache clean --force
 
 # ================================
 # STAGE 1.5: Dependencias de producción solamente
@@ -72,7 +72,7 @@ FROM base AS runner
 
 # Variables de entorno de producción
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=5001
 ENV HOST=0.0.0.0
 
 # Crear directorios necesarios
@@ -104,11 +104,11 @@ RUN npm install -g pm2
 USER cafeapp
 
 # Exponer puerto
-EXPOSE 3001
+EXPOSE 5001
 
 # Health check (independiente de la DB)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -fsS http://localhost:3001/api/ping || exit 1
+  CMD curl -fsS http://localhost:5001/api/ping || exit 1
 
 # Comando por defecto
 CMD ["pm2-runtime", "start", "ecosystem.config.cjs", "--env", "production"]

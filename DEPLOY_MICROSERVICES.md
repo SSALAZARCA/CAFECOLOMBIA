@@ -23,7 +23,7 @@ git push origin main
 2.  Selecciona `SSALAZARCA/CAFECOLOMBIA` (rama `main`).
 3.  **Build Pack**: `Dockerfile`.
 4.  **Dockerfile Location**: `/Dockerfile.backend` (¡Importante cambiar esto!).
-5.  **Puerto**: `3001` (Exposed Port).
+5.  **Puerto**: `5001` (Exposed Port).
 6.  **Variables de Entorno**:
     *   `NODE_ENV`: `production`
     *   `DB_HOST`: (Host interno de la BD, ej: `uuid-mysql`)
@@ -31,7 +31,7 @@ git push origin main
     *   `DB_PASSWORD`: (Password BD)
     *   `DB_NAME`: (Nombre BD)
     *   `JWT_SECRET`: (Tu secreto)
-    *   `PORT`: `3001`
+    *   `PORT`: `5001`
 7.  Haz clic en **Deploy**.
 8.  Una vez desplegado, copia la **URL pública** que Coolify le asignó (ej. `https://api.tu-dominio.com`).
 9.  **Inicializar BD**: Entra a la Terminal del Backend y ejecuta `npx prisma db push`.
