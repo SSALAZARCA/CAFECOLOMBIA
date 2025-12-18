@@ -60,7 +60,13 @@ const LoginUniversal: React.FC = () => {
     let lastError: any = null;
     for (const attempt of attempts) {
       try {
-        const response = await fetch('/api/auth/login', {
+        // Construir URL base correcta
+        const baseUrl = import.meta.env.VITE_API_URL || '/api';
+        const url = `${baseUrl.replace(/\/$/, '')}/auth/login`;
+
+        console.log('Intento de login general:', { url, email: attempt.body.email });
+
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(attempt.body)
@@ -214,8 +220,8 @@ const LoginUniversal: React.FC = () => {
         <div className="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10">
           {stateMessage && (
             <div className={`mb-4 p-4 rounded-md ${messageType === 'success' ? 'bg-green-50 border border-green-200' :
-                messageType === 'error' ? 'bg-red-50 border border-red-200' :
-                  'bg-blue-50 border border-blue-200'
+              messageType === 'error' ? 'bg-red-50 border border-red-200' :
+                'bg-blue-50 border border-blue-200'
               }`}>
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -227,7 +233,7 @@ const LoginUniversal: React.FC = () => {
                 </div>
                 <div className="ml-3">
                   <p className={`text-sm ${messageType === 'success' ? 'text-green-800' :
-                      messageType === 'error' ? 'text-red-800' : 'text-blue-800'
+                    messageType === 'error' ? 'text-red-800' : 'text-blue-800'
                     }`}>{stateMessage}</p>
                 </div>
               </div>
