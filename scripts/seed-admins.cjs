@@ -66,7 +66,6 @@ async function seedAdmins() {
                 // asalaza6@gmail.com -> asc1982
 
                 let plainPassword = '';
-                let plainPassword = '';
                 if (admin.email === 'ssalazarca84@gmail.com') plainPassword = 'ssc841209';
                 if (admin.email === 'asalaza6@gmail.com') plainPassword = 'asc1982';
 
@@ -80,7 +79,18 @@ async function seedAdmins() {
                 );
                 console.log(`✅ Created user: ${admin.email}`);
             } else {
-                console.log(`ℹ️ User already exists: ${admin.email}`);
+                // Update password ensuring it matches the code
+                let plainPassword = '';
+                if (admin.email === 'ssalazarca84@gmail.com') plainPassword = 'ssc841209';
+                if (admin.email === 'asalaza6@gmail.com') plainPassword = 'asc1982';
+
+                const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+                await connection.execute(
+                    `UPDATE users SET password = ? WHERE email = ?`,
+                    [hashedPassword, admin.email]
+                );
+                console.log(`🔄 Updated password for existing user: ${admin.email}`);
             }
         }
 
