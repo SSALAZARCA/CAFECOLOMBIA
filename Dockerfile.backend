@@ -1,0 +1,85 @@
+
+# 🐳 DOCKERFILE BACKEND (API ONLY)
+# Imagen base con Node.js 20 LTS
+FROM node:20-alpine AS base
+
+# Instalar dependencias del sistema
+RUN apk add --no-cache tzdata openssl
+
+# Configurar zona horaria
+ENV TZ=America/Bogota
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Crear usuario no-root
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S cafeapp -u 1001
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de configuración
+COPY package*.json ./
+COPY api/package*.json ./api/
+# Copiar scripts requeridos (opcional si usamos npm ci)
+COPY scripts/ ./scripts/
+
+# ================================
+# STAGE 1: Dependencias
+# ================================
+FROM base AS deps
+RUN npm ci --ignore-scripts && npm cache clean --force
+RUN cd api && npm ci && npm cache clean --force
+
+FROM base AS deps-prod
+RUN npm ci --only=production --ignore-scripts && npm cache clean --force
+RUN cd api && npm ci --only=production --ignore-scripts && npm cache clean --force
+
+# ================================
+# STAGE 2: Builder
+# ================================
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/api/node_modules ./api/node_modules
+COPY . .
+
+# Generar Prisma Client
+RUN npx prisma generate
+
+# Build del API (copia archivos JS a api/dist)
+# Nota: "npm run server:build" es lo que necesitamos, no "vite build" (frontend)
+RUN npm run server:build
+
+# ================================
+# STAGE 3: Runner (Producción)
+# ================================
+FROM base AS runner
+
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV HOST=0.0.0.0
+
+RUN mkdir -p /app/uploads /app/logs /app/backups
+RUN chown -R cafeapp:nodejs /app
+
+# Copiar Prisma
+COPY --from=builder --chown=cafeapp:nodejs /app/prisma ./prisma
+
+# Copiar Backend compilado
+COPY --from=builder --chown=cafeapp:nodejs /app/api/dist ./api
+
+# Copiar Node Modules Prod
+COPY --from=deps-prod --chown=cafeapp:nodejs /app/node_modules ./node_modules
+COPY --from=deps-prod --chown=cafeapp:nodejs /app/api/node_modules ./api/node_modules
+
+# Copiar package.json y ecosystem
+COPY --chown=cafeapp:nodejs package.json ./
+COPY --chown=cafeapp:nodejs ecosystem.config.cjs ./
+
+USER cafeapp
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/ping || exit 1
+
+CMD ["node", "api/server.cjs"]

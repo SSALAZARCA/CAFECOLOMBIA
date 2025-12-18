@@ -1,0 +1,37 @@
+
+# 🐳 DOCKERFILE FRONTEND (STATIC + NGINX)
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copiar configuración
+COPY package*.json ./
+COPY tsconfig*.json ./
+
+# Instalar dependencias
+RUN npm ci --ignore-scripts && npm cache clean --force
+
+# Copiar código fuente
+COPY . .
+
+# Argumentos de build (Coolify inyecta variables aquí si se configuran como Build Args)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+# Build del Frontend
+RUN npm run build
+
+# ================================
+# STAGE 2: Nginx Runner
+# ================================
+FROM nginx:alpine
+
+# Copiar resultado del build
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copiar configuración Nginx
+COPY nginx/frontend.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
