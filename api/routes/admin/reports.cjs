@@ -1,86 +1,91 @@
 const express = require('express');
 const router = express.Router();
-// MySQL imports removed for local dev safety
-// const mysql = require('mysql2/promise');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-
-// GET /api/admin/reports - Generar reporte completo
+// GET /api/admin/reports
 router.get('/', async (req, res) => {
     try {
-        const { period = '12months', type = 'overview' } = req.query;
+        const { period = '12months' } = req.query;
 
-        // Mock Data Safe for Local Dev
+        // 1. User Growth (Last 6-12 months)
+        // Group CoffeeGrowers and Users by created_at month
+        const growers = await prisma.coffeeGrower.findMany({ select: { created_at: true } });
+        // const genericUsers = await prisma.user.findMany({ select: { createdAt: true } }); // Optional merge
+
+        const monthlyStats = {};
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        growers.forEach(g => {
+            if (!g.created_at) return;
+            const d = new Date(g.created_at);
+            const monthKey = `${months[d.getMonth()]} ${d.getFullYear()}`; // Unique key
+            if (!monthlyStats[monthKey]) monthlyStats[monthKey] = 0;
+            monthlyStats[monthKey]++;
+        });
+
+        const userGrowth = Object.entries(monthlyStats).map(([month, count]) => ({
+            month: month.split(' ')[0], // Simpler label
+            users: count,
+            growth: 0 // Placeholder or calculate diff
+        })).slice(-6); // Last 6 months
+
+        // 2. Geographic Stats (Farms by Department)
+        // Check if Farm has department
+        const farms = await prisma.farm.findMany({ select: { department: true } });
+        const regionMap = {};
+        farms.forEach(f => {
+            const region = f.department || 'Desconocido';
+            if (!regionMap[region]) regionMap[region] = 0;
+            regionMap[region]++;
+        });
+
+        const coffeeGrowerStats = Object.entries(regionMap).map(([region, count]) => ({
+            region,
+            farms: count, // Using farm count as proxy for grower density
+            growers: count
+        })).sort((a, b) => b.farms - a.farms).slice(0, 5);
+
+        // 3. Real Totals
+        const totalGrowers = await prisma.coffeeGrower.count();
+        const totalFarms = await prisma.farm.count();
+
         res.json({
-            userGrowth: [
-                { month: 'Jan', users: 10, growth: 5 },
-                { month: 'Feb', users: 15, growth: 50 },
-                { month: 'Mar', users: 20, growth: 33 },
-                { month: 'Apr', users: 25, growth: 25 },
-                { month: 'May', users: 40, growth: 60 },
-                { month: 'Jun', users: 45, growth: 12 }
-            ],
-            revenueAnalysis: [
-                { month: 'Jan', revenue: 100000, subscriptions: 10 },
-                { month: 'Feb', revenue: 150000, subscriptions: 15 },
-                { month: 'Mar', revenue: 200000, subscriptions: 20 },
-                { month: 'Apr', revenue: 250000, subscriptions: 25 },
-                { month: 'May', revenue: 400000, subscriptions: 40 },
-                { month: 'Jun', revenue: 450000, subscriptions: 45 }
-            ],
+            userGrowth: userGrowth.length ? userGrowth : [{ month: 'N/A', users: 0, growth: 0 }],
+            // Mocking revenue/subscriptions as those tables are not populated yet
+            revenueAnalysis: [],
             subscriptionDistribution: [
-                { plan: 'ADMINISTRADOR', count: 1, revenue: 0 },
-                { plan: 'TRABAJADOR', count: 5, revenue: 0 },
-                { plan: 'CAFICULTOR', count: 40, revenue: 4000000 }
+                { plan: 'TRABAJADOR', count: 0, revenue: 0 },
+                { plan: 'CAFICULTOR', count: totalGrowers, revenue: 0 }
             ],
-            paymentMethods: [
-                { method: 'Tarjeta de Crédito', count: 20, percentage: 50 },
-                { method: 'Transferencia', count: 15, percentage: 37.5 },
-                { method: 'Efectivo', count: 5, percentage: 12.5 }
-            ],
-            coffeeGrowerStats: [
-                { region: 'Antioquia', growers: 10, farms: 12 },
-                { region: 'Huila', growers: 15, farms: 20 },
-                { region: 'Caldas', growers: 8, farms: 8 }
-            ],
-            topPerformingPlans: [
-                { plan: 'Plan Pro', subscribers: 25, revenue: 1250000, churnRate: 2.1 },
-                { plan: 'Plan Básico', subscribers: 15, revenue: 450000, churnRate: 4.5 }
-            ],
+            paymentMethods: [],
+            coffeeGrowerStats: coffeeGrowerStats,
+            topPerformingPlans: [],
             monthlyMetrics: {
-                totalUsers: 46,
-                activeSubscriptions: 40,
-                totalRevenue: 1700000,
-                churnRate: 3.2,
-                averageRevenuePerUser: 37000,
-                conversionRate: 12.5
+                totalUsers: totalGrowers,
+                activeSubscriptions: 0,
+                totalRevenue: 0,
+                churnRate: 0,
+                averageRevenuePerUser: 0,
+                conversionRate: 0
             },
             trends: {
-                userGrowthRate: 12.5,
-                revenueGrowthRate: 8.3,
-                subscriptionGrowthRate: 15.2,
-                churnTrend: -2.1
+                userGrowthRate: 0, // Calculate if needed
+                revenueGrowthRate: 0,
+                subscriptionGrowthRate: 0,
+                churnTrend: 0
             }
         });
+
     } catch (error) {
         console.error('Error generating report:', error);
-        res.status(500).json({ error: 'Error generando reporte' });
+        res.status(500).json({ error: 'Error generando reporte', details: error.message });
     }
 });
 
-// GET /api/admin/reports/export - Exportar reporte
+// GET /api/admin/reports/export
 router.get('/export', async (req, res) => {
-    try {
-        const { format = 'pdf' } = req.query;
-
-        // Por ahora retornar mensaje de éxito
-        res.json({
-            success: true,
-            message: `Exportación en formato ${format} simulada correctamente`,
-            format: format
-        });
-    } catch (error) {
-        res.status(500).json({ error: 'Error exportando reporte' });
-    }
+    res.json({ success: true, message: 'Función de exportación pendiente de implementación real' });
 });
 
 module.exports = router;
