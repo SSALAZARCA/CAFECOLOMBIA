@@ -32,9 +32,28 @@ interface RefreshTokenResponse {
 // =====================================================
 
 // Usar Proxy de Vite en desarrollo para evitar CORS
-const API_BASE_URL = import.meta.env.DEV
-  ? '/api'
-  : (import.meta.env.VITE_API_URL || '/api');
+// Utility to ensure base URL has /api suffix
+const getBaseUrl = () => {
+  if (import.meta.env.DEV) return '/api';
+
+  let url = import.meta.env.VITE_API_URL || '';
+  if (!url) return '/api';
+
+  // Ensure it starts with http/https if absolute, logic handled by browser for relative
+  // But if it's the full domain from Coolify, it usually has https://
+
+  // Strip trailing slash
+  url = url.replace(/\/$/, '');
+
+  // Append /api if not present
+  if (!url.endsWith('/api')) {
+    url += '/api';
+  }
+
+  return url;
+};
+
+const API_BASE_URL = getBaseUrl();
 
 const DEFAULT_TIMEOUT = 30000; // 30 segundos
 
