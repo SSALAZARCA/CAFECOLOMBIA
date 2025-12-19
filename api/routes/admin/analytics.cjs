@@ -113,17 +113,11 @@ router.get('/totals', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching analytics totals:', error);
-    // Fallback to 0 instead of crashing
-    res.json({
-      metrics: {
-        totalUsers: 0,
-        activeUsers: 0,
-        totalCoffeeGrowers: 0,
-        totalFarms: 0,
-        totalSubscriptions: 0,
-        totalRevenue: 0,
-        admins: 0
-      }
+    // Expose error to frontend to diagnose "0" issue
+    res.status(500).json({
+      success: false,
+      error: 'Error de conexión a Base de Datos',
+      details: error.message
     });
   }
 });
