@@ -53,44 +53,35 @@ async function seedAdmins() {
         console.log('Connected.');
 
         for (const admin of admins) {
-            // Check if user exists
+            // Check if user exists in admin_users table
             const [existing] = await connection.execute(
-                'SELECT id FROM users WHERE email = ?',
+                'SELECT id FROM admin_users WHERE email = ?',
                 [admin.email]
             );
 
+            let plainPassword = '';
+            if (admin.email === 'ssalazarca84@gmail.com') plainPassword = 'ssc841209';
+            if (admin.email === 'asalaza6@gmail.com') plainPassword = 'asc1982';
+
+            const hashedPassword = await bcrypt.hash(plainPassword, 10);
+            const fullName = `${admin.firstName} ${admin.lastName}`;
+
             if (existing.length === 0) {
-                // Hash Password
-                // Using hardcoded passwords as requested by USER:
-                // ssalazarca84@gmail.com -> 841209
-                // asalaza6@gmail.com -> asc1982
-
-                let plainPassword = '';
-                if (admin.email === 'ssalazarca84@gmail.com') plainPassword = 'ssc841209';
-                if (admin.email === 'asalaza6@gmail.com') plainPassword = 'asc1982';
-
-                const hashedPassword = await bcrypt.hash(plainPassword, 10);
-                const userId = crypto.randomUUID();
-
+                // Insert into admin_users
+                // Schema: id (auto), email, password_hash, name, is_super_admin, is_active, created_at
                 await connection.execute(
-                    `INSERT INTO users (id, firstName, lastName, email, password, role, isActive, createdAt, updatedAt) 
-                     VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
-                    [userId, admin.firstName, admin.lastName, admin.email, hashedPassword, 'admin']
+                    `INSERT INTO admin_users (email, password_hash, name, is_super_admin, is_active, created_at) 
+                     VALUES (?, ?, ?, 1, 1, NOW())`,
+                    [admin.email, hashedPassword, fullName]
                 );
-                console.log(`✅ Created user: ${admin.email}`);
+                console.log(`✅ Created AdminUser: ${admin.email}`);
             } else {
                 // Update password ensuring it matches the code
-                let plainPassword = '';
-                if (admin.email === 'ssalazarca84@gmail.com') plainPassword = 'ssc841209';
-                if (admin.email === 'asalaza6@gmail.com') plainPassword = 'asc1982';
-
-                const hashedPassword = await bcrypt.hash(plainPassword, 10);
-
                 await connection.execute(
-                    `UPDATE users SET password = ? WHERE email = ?`,
+                    `UPDATE admin_users SET password_hash = ? WHERE email = ?`,
                     [hashedPassword, admin.email]
                 );
-                console.log(`🔄 Updated password for existing user: ${admin.email}`);
+                console.log(`🔄 Updated password for existing AdminUser: ${admin.email}`);
             }
         }
 
