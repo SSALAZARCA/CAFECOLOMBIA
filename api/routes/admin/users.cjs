@@ -1,218 +1,103 @@
 const express = require('express');
 const router = express.Router();
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-// Mock data para usuarios
-const mockUsers = [
-    {
-        id: 1,
-        firstName: 'Juan',
-        lastName: 'Pérez',
-        email: 'juan.perez@example.com',
-        role: 'grower',
-        isActive: true,
-        createdAt: '2024-01-15T10:00:00Z',
-        lastLogin: '2024-11-30T08:30:00Z'
-    },
-    {
-        id: 2,
-        firstName: 'María',
-        lastName: 'González',
-        email: 'maria.gonzalez@example.com',
-        role: 'grower',
-        isActive: true,
-        createdAt: '2024-02-20T14:00:00Z',
-        lastLogin: '2024-11-29T16:45:00Z'
-    },
-    {
-        id: 3,
-        firstName: 'Carlos',
-        lastName: 'Rodríguez',
-        email: 'carlos.rodriguez@example.com',
-        role: 'grower',
-        isActive: false,
-        createdAt: '2024-03-10T09:00:00Z',
-        lastLogin: '2024-10-15T12:00:00Z'
-    }
-];
-
-// GET /api/admin/users - Listar usuarios
+// GET /api/admin/users - Listar usuarios (Real Data)
 router.get('/', async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '', role = '', status = '' } = req.query;
 
-        let filteredUsers = [...mockUsers];
+        // Fetch all possible user types
+        // 1. AdminUsers
+        const admins = await prisma.adminUser.findMany();
+        // 2. CoffeeGrowers
+        const growers = await prisma.coffeeGrower.findMany();
+        // 3. Generic Users (if any)
+        const generics = await prisma.user.findMany();
 
-        // Filtrar por búsqueda
+        // Map to uniform User interface
+        let allUsers = [];
+
+        allUsers = allUsers.concat(admins.map(a => ({
+            id: `admin-${a.id}`,
+            realId: a.id,
+            username: a.email,
+            email: a.email,
+            firstName: a.name || 'Admin',
+            lastName: '',
+            role: 'admin',
+            status: a.is_active ? 'active' : 'inactive',
+            createdAt: a.created_at || new Date().toISOString(),
+            lastLogin: a.last_login || new Date().toISOString()
+        })));
+
+        allUsers = allUsers.concat(growers.map(g => ({
+            id: `grower-${g.id}`,
+            realId: g.id,
+            username: g.email,
+            email: g.email,
+            firstName: g.full_name ? g.full_name.split(' ')[0] : 'Caficultor',
+            lastName: g.full_name ? g.full_name.split(' ').slice(1).join(' ') : '',
+            role: 'coffee_grower',
+            status: g.status || 'active',
+            createdAt: g.created_at || new Date().toISOString(),
+            lastLogin: new Date().toISOString()
+        })));
+
+        allUsers = allUsers.concat(generics.map(u => ({
+            id: `user-${u.id}`,
+            realId: u.id,
+            username: u.username || u.email,
+            email: u.email,
+            firstName: u.name || 'User',
+            lastName: '',
+            role: 'user',
+            status: 'active',
+            createdAt: u.created_at || new Date().toISOString(),
+            lastLogin: new Date().toISOString()
+        })));
+
+        // Filtering Logic
+        let filteredUsers = allUsers;
+
         if (search) {
+            const lowerSearch = search.toLowerCase();
             filteredUsers = filteredUsers.filter(user =>
-                user.firstName.toLowerCase().includes(search.toLowerCase()) ||
-                user.lastName.toLowerCase().includes(search.toLowerCase()) ||
-                user.email.toLowerCase().includes(search.toLowerCase())
+                user.firstName.toLowerCase().includes(lowerSearch) ||
+                user.lastName.toLowerCase().includes(lowerSearch) ||
+                user.email.toLowerCase().includes(lowerSearch)
             );
         }
 
-        // Filtrar por rol
-        if (role) {
+        if (role && role !== 'all') {
             filteredUsers = filteredUsers.filter(user => user.role === role);
         }
 
-        // Filtrar por estado
-        if (status === 'active') {
-            filteredUsers = filteredUsers.filter(user => user.isActive);
-        } else if (status === 'inactive') {
-            filteredUsers = filteredUsers.filter(user => !user.isActive);
+        if (status && status !== 'all') {
+            filteredUsers = filteredUsers.filter(user => user.status === status);
         }
 
+        // Pagination
         const total = filteredUsers.length;
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + parseInt(limit);
+        const startIndex = (Number(page) - 1) * Number(limit);
+        const endIndex = startIndex + Number(limit);
         const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
 
+        // Return flattened structure as expected by AdminUsers.tsx
         res.json({
-            success: true,
-            data: {
-                users: paginatedUsers,
-                pagination: {
-                    page: parseInt(page),
-                    limit: parseInt(limit),
-                    total,
-                    totalPages: Math.ceil(total / limit)
-                }
+            users: paginatedUsers,
+            pagination: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                totalPages: Math.ceil(total / Number(limit))
             }
         });
+
     } catch (error) {
         console.error('Error fetching users:', error);
-        res.status(500).json({ error: 'Error obteniendo usuarios' });
-    }
-});
-
-// GET /api/admin/users/stats - Estadísticas de usuarios
-router.get('/stats', async (req, res) => {
-    try {
-        const totalUsers = mockUsers.length;
-        const activeUsers = mockUsers.filter(u => u.isActive).length;
-        const inactiveUsers = mockUsers.filter(u => !u.isActive).length;
-        const growers = mockUsers.filter(u => u.role === 'grower').length;
-
-        res.json({
-            success: true,
-            data: {
-                total: totalUsers,
-                active: activeUsers,
-                inactive: inactiveUsers,
-                growers,
-                admins: 1,
-                newThisMonth: 2,
-                growthRate: 15.5
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching user stats:', error);
-        res.status(500).json({ error: 'Error obteniendo estadísticas' });
-    }
-});
-
-// GET /api/admin/users/:id - Ver usuario específico
-router.get('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const user = mockUsers.find(u => u.id === parseInt(id));
-
-        if (!user) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
-
-        res.json({ success: true, data: user });
-    } catch (error) {
-        console.error('Error fetching user:', error);
-        res.status(500).json({ error: 'Error obteniendo usuario' });
-    }
-});
-
-// POST /api/admin/users - Crear usuario
-router.post('/', async (req, res) => {
-    try {
-        const { firstName, lastName, email, role, password } = req.body;
-
-        if (!firstName || !lastName || !email || !password) {
-            return res.status(400).json({ error: 'Todos los campos son requeridos' });
-        }
-
-        const newUser = {
-            id: mockUsers.length + 1,
-            firstName,
-            lastName,
-            email,
-            role: role || 'grower',
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            lastLogin: null
-        };
-
-        mockUsers.push(newUser);
-
-        res.status(201).json({
-            success: true,
-            message: 'Usuario creado exitosamente',
-            data: newUser
-        });
-    } catch (error) {
-        console.error('Error creating user:', error);
-        res.status(500).json({ error: 'Error creando usuario' });
-    }
-});
-
-// PUT /api/admin/users/:id - Actualizar usuario
-router.put('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { firstName, lastName, email, role, isActive } = req.body;
-
-        const userIndex = mockUsers.findIndex(u => u.id === parseInt(id));
-
-        if (userIndex === -1) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
-
-        mockUsers[userIndex] = {
-            ...mockUsers[userIndex],
-            firstName: firstName || mockUsers[userIndex].firstName,
-            lastName: lastName || mockUsers[userIndex].lastName,
-            email: email || mockUsers[userIndex].email,
-            role: role || mockUsers[userIndex].role,
-            isActive: isActive !== undefined ? isActive : mockUsers[userIndex].isActive
-        };
-
-        res.json({
-            success: true,
-            message: 'Usuario actualizado exitosamente',
-            data: mockUsers[userIndex]
-        });
-    } catch (error) {
-        console.error('Error updating user:', error);
-        res.status(500).json({ error: 'Error actualizando usuario' });
-    }
-});
-
-// DELETE /api/admin/users/:id - Eliminar usuario
-router.delete('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const userIndex = mockUsers.findIndex(u => u.id === parseInt(id));
-
-        if (userIndex === -1) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
-
-        mockUsers.splice(userIndex, 1);
-
-        res.json({
-            success: true,
-            message: 'Usuario eliminado exitosamente'
-        });
-    } catch (error) {
-        console.error('Error deleting user:', error);
-        res.status(500).json({ error: 'Error eliminando usuario' });
+        res.status(500).json({ error: 'Error obteniendo usuarios', details: error.message });
     }
 });
 
