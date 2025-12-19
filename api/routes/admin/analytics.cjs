@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 // Mock Analytics Data for Local Dev
 const mockAnalytics = {
@@ -85,16 +87,45 @@ router.get('/export', async (req, res) => {
   }
 });
 
-// GET /api/admin/analytics/totals - Totales para dashboard
-router.get('/totals', (req, res) => {
-  res.json({
-    metrics: {
-      totalUsers: 150,
-      activeUsers: 120,
-      totalSubscriptions: 25,
-      totalRevenue: 5000000
-    }
-  });
+// GET /api/admin/analytics/totals - Totales para dashboard (Real Data)
+router.get('/totals', async (req, res) => {
+  try {
+    const [usersCount, growersCount, farmsCount, adminsCount] = await Promise.all([
+      prisma.user.count(),
+      prisma.coffeeGrower.count(),
+      prisma.farm.count(), // Using modern Farm table
+      prisma.adminUser.count()
+    ]);
+
+    // Calcular total de "Usuarios del Sistema" como suma o específicos
+    const totalSystemUsers = usersCount + growersCount + adminsCount;
+
+    res.json({
+      metrics: {
+        totalUsers: totalSystemUsers, // Sum of all user types
+        activeUsers: growersCount, // Proxied by growers for now
+        totalCoffeeGrowers: growersCount,
+        totalFarms: farmsCount,
+        totalSubscriptions: 0, // No subscription table yet?
+        totalRevenue: 0, // Needs payment logic
+        admins: adminsCount
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching analytics totals:', error);
+    // Fallback to 0 instead of crashing
+    res.json({
+      metrics: {
+        totalUsers: 0,
+        activeUsers: 0,
+        totalCoffeeGrowers: 0,
+        totalFarms: 0,
+        totalSubscriptions: 0,
+        totalRevenue: 0,
+        admins: 0
+      }
+    });
+  }
 });
 
 // GET /api/admin/analytics/overview - Vista general
