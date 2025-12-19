@@ -4,7 +4,7 @@
 FROM node:20-alpine AS base
 
 # Instalar dependencias del sistema
-RUN apk add --no-cache tzdata openssl
+RUN apk add --no-cache tzdata openssl bash
 
 # Configurar zona horaria
 ENV TZ=America/Bogota
@@ -27,12 +27,12 @@ COPY scripts/ ./scripts/
 # STAGE 1: Dependencias
 # ================================
 FROM base AS deps
-RUN npm ci --ignore-scripts && npm cache clean --force
-RUN cd api && npm ci && npm cache clean --force
+RUN npm ci --ignore-scripts && npm cache clean --force && \
+    cd api && npm ci && npm cache clean --force
 
 FROM base AS deps-prod
-RUN npm ci --only=production --ignore-scripts && npm cache clean --force
-RUN cd api && npm ci --only=production --ignore-scripts && npm cache clean --force
+RUN npm ci --only=production --ignore-scripts && npm cache clean --force && \
+    cd api && npm ci --only=production --ignore-scripts && npm cache clean --force
 
 # ================================
 # STAGE 2: Builder
