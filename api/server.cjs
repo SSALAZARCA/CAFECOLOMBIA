@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios'); // Import axios for scraping
+const helmet = require('helmet'); // Security Headers
 
 const logger = require('./lib/logger.cjs'); // Importar el logger
 const { errorHandler, asyncErrorHandler, validateRequest, ErrorCodes } = require('./lib/errorHandler.cjs'); // Importar manejador de errores
@@ -30,6 +31,16 @@ if (!process.env.NODE_ENV) {
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+// Trust Proxy for Coolify/Nginx/Load Balancer (Critical for HTTPS)
+app.set('trust proxy', 1);
+
+// Security Headers (Helmet)
+// Disable CSP/COEP to avoid breaking external scripts (Maps, Firebase) for now
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 
 // Configuración de la base de datos (acepta ambas familias DB_* y MYSQL_*)
 const { dbConfig, pool } = require('./config/database.cjs');
