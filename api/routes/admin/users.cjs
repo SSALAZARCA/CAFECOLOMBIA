@@ -124,7 +124,8 @@ router.post('/', async (req, res) => {
                     email,
                     name: `${firstName} ${lastName}`,
                     password_hash: hashedPassword,
-                    is_active: status === 'active'
+                    is_active: status === 'active',
+                    role: 'super_admin' // o el rol que corresponda
                 }
             });
 
@@ -147,7 +148,9 @@ router.post('/', async (req, res) => {
                     email,
                     full_name: `${firstName} ${lastName}`,
                     password_hash: hashedPassword,
-                    status: status || 'active'
+                    status: status || 'active',
+                    phone: phone || null,
+                    location: location || null
                 }
             });
 
@@ -159,8 +162,8 @@ router.post('/', async (req, res) => {
                 lastName,
                 role: 'coffee_grower',
                 status: newUser.status,
-                phone: phone || '',
-                location: location || ''
+                phone: newUser.phone || '',
+                location: newUser.location || ''
             });
 
         } else if (role === 'user') {
