@@ -78,6 +78,10 @@ COPY --from=builder --chown=cafeapp:nodejs /app/node_modules/.prisma ./node_modu
 COPY --chown=cafeapp:nodejs package.json ./
 COPY --chown=cafeapp:nodejs ecosystem.config.cjs ./
 
+# Copiar script de inicio
+COPY --chown=cafeapp:nodejs scripts/start-backend.sh ./scripts/
+RUN chmod +x ./scripts/start-backend.sh
+
 USER cafeapp
 
 EXPOSE 5001
@@ -85,4 +89,4 @@ EXPOSE 5001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:5001/api/ping || exit 1
 
-CMD ["node", "api/server.cjs"]
+CMD ["./scripts/start-backend.sh"]
