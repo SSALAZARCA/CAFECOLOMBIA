@@ -101,6 +101,110 @@ router.get('/', async (req, res) => {
     }
 });
 
+// POST /api/admin/users - Crear nuevo usuario
+router.post('/', async (req, res) => {
+    try {
+        const { username, email, firstName, lastName, password, role, status, phone, location } = req.body;
+
+        // Validar campos requeridos
+        if (!email || !firstName || !lastName || !password || !role) {
+            return res.status(400).json({ error: 'Campos requeridos faltantes' });
+        }
+
+        // Hash de la contraseña
+        const bcrypt = require('bcryptjs');
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        let newUser;
+
+        // Crear usuario según el rol
+        if (role === 'admin') {
+            newUser = await prisma.adminUser.create({
+                data: {
+                    email,
+                    name: `${firstName} ${lastName}`,
+                    password_hash: hashedPassword,
+                    is_active: status === 'active',
+                    role: 'super_admin' // o el rol que corresponda
+                }
+            });
+
+            // Retornar en formato esperado por el frontend
+            return res.status(201).json({
+                id: `admin-${newUser.id}`,
+                username: email,
+                email: newUser.email,
+                firstName,
+                lastName,
+                role: 'admin',
+                status: newUser.is_active ? 'active' : 'inactive',
+                phone: phone || '',
+                location: location || ''
+            });
+
+        } else if (role === 'coffee_grower') {
+            newUser = await prisma.coffeeGrower.create({
+                data: {
+                    email,
+                    full_name: `${firstName} ${lastName}`,
+                    password_hash: hashedPassword,
+                    status: status || 'active',
+                    phone: phone || null,
+                    location: location || null
+                }
+            });
+
+            return res.status(201).json({
+                id: `grower-${newUser.id}`,
+                username: email,
+                email: newUser.email,
+                firstName,
+                lastName,
+                role: 'coffee_grower',
+                status: newUser.status,
+                phone: newUser.phone || '',
+                location: newUser.location || ''
+            });
+
+        } else if (role === 'user') {
+            newUser = await prisma.user.create({
+                data: {
+                    email,
+                    username: username || email,
+                    password: hashedPassword,
+                    firstName,
+                    lastName,
+                    role: 'TRABAJADOR',
+                    isActive: status === 'active'
+                }
+            });
+
+            return res.status(201).json({
+                id: `user-${newUser.id}`,
+                username: newUser.username,
+                email: newUser.email,
+                firstName: newUser.firstName,
+                lastName: newUser.lastName,
+                role: 'user',
+                status: newUser.isActive ? 'active' : 'inactive',
+                phone: phone || '',
+                location: location || ''
+            });
+        }
+
+        return res.status(400).json({ error: 'Rol no válido' });
+
+    } catch (error) {
+        console.error('Error creating user:', error);
+
+        // Manejar error de email duplicado
+        if (error.code === 'P2002') {
+            return res.status(409).json({ error: 'El email ya está registrado' });
+        }
+
+        res.status(500).json({ error: 'Error creando usuario', details: error.message });
+    }
+});
 
 // DELETE /api/admin/users/:id - Eliminar usuario
 router.delete('/:id', async (req, res) => {
