@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 // GET /api/admin/users - Listar usuarios (Real Data)
@@ -112,7 +113,6 @@ router.post('/', async (req, res) => {
         }
 
         // Hash de la contraseña
-        const bcrypt = require('bcryptjs');
         const hashedPassword = await bcrypt.hash(password, 10);
 
         let newUser;
