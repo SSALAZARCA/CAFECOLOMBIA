@@ -16,8 +16,11 @@ const authenticateToken = async (req, res, next) => {
             return res.status(401).json({ success: false, error: 'Token de acceso requerido' });
         }
 
-        // Determine secret key (hardcoded fallback for dev if env missing)
-        const jwtSecret = process.env.JWT_SECRET || 'cafe-colombia-secret-key-2024';
+        // Determine secret key
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+            return res.status(500).json({ success: false, error: 'Server configuration error: JWT_SECRET missing' });
+        }
 
         let decoded;
         try {

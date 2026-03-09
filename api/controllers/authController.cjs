@@ -5,7 +5,10 @@ const prisma = new PrismaClient();
 const logger = require('../lib/logger.cjs');
 
 // Clave secreta para JWT
-const JWT_SECRET = process.env.JWT_SECRET || 'cafe_colombia_jwt_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    throw new Error('FATAL ERROR: JWT_SECRET is not defined in environment variables');
+}
 const JWT_EXPIRES_IN = '24h';
 
 const authController = {

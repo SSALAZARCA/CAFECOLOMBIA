@@ -22,7 +22,10 @@ const authenticateAdmin = async (req, res, next) => {
     try {
       const jwt = require('jsonwebtoken');
       // Usar la misma clave que en authController
-      const secret = process.env.JWT_SECRET || 'cafe_colombia_jwt_secret_key_2024';
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        return res.status(500).json({ success: false, message: 'Server configuration error: JWT_SECRET missing' });
+      }
       const decoded = jwt.verify(token, secret);
       req.admin = decoded;
       return next();
