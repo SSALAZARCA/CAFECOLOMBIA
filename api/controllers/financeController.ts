@@ -20,7 +20,7 @@ export const createTransactionSchema = z.object({
 
 const updateTransactionSchema = createTransactionSchema.partial();
 
-const createBudgetSchema = z.object({
+export const createBudgetSchema = z.object({
   farmId: z.number().int().positive(),
   category: z.string().min(1, 'La categoría es requerida'),
   amount: z.number().positive('El monto debe ser positivo'),
@@ -30,7 +30,7 @@ const createBudgetSchema = z.object({
   description: z.string().optional()
 });
 
-const updateBudgetSchema = createBudgetSchema.partial();
+export const updateBudgetSchema = createBudgetSchema.partial();
 
 // CONTROLADORES PARA TRANSACCIONES
 
