@@ -328,12 +328,12 @@ export class AIService {
   }
 
   // Obtener resultados de análisis
-  async getAnalysisResults(analysisId: string): Promise<AIAnalysisResult | null> {
+  async getAnalysisResult(analysisId: string): Promise<AIAnalysisResult | null> {
     try {
       const analysis = await offlineDB.getAIAnalysisByAgent('phytosanitary'); // Temporal
       return analysis.find(a => a.id === analysisId) || null;
     } catch (error) {
-      console.error('Error getting analysis results:', error);
+      console.error('Error getting analysis result:', error);
       return null;
     }
   }
