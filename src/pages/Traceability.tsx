@@ -228,7 +228,15 @@ export default function Traceability() {
             harvestDate: harvest.harvestDate || harvest.date,
             qualityGrade: harvest.qualityGrade || 'A'
           } : undefined,
-          qualityControls: [], // TODO: Link real QCs
+          qualityControls: micEvents
+            .filter(e => e.stage === 'CATA')
+            .map(e => ({
+              id: e.id?.toString() || `qc-${m.id}-${e.timestamp}`,
+              testType: 'CATA',
+              scaScore: e.data?.scaScore || e.data?.qualityScore,
+              passed: e.data?.passed !== false,
+              testDate: e.timestamp
+            })),
           traceabilityEvents: micEvents.map(e => ({
             id: e.id?.toString() || '',
             eventType: e.stage,
@@ -236,7 +244,13 @@ export default function Traceability() {
             description: e.description,
             data: e.data
           })),
-          certificationRecords: [] // TODO: Link real certs
+          certificationRecords: m.certifications
+            ? m.certifications.split(',').map(c => c.trim()).filter(Boolean).map((cert, idx) => ({
+                id: `cert-${m.id}-${idx}`,
+                certificationType: cert,
+                status: 'ACTIVA'
+              }))
+            : []
         };
       });
 
