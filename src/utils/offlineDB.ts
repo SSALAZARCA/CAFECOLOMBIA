@@ -879,7 +879,7 @@ export class OfflineDatabase extends Dexie {
     ] = await Promise.all([
       this.lots.count(),
       this.tasks.count(),
-      this.tasks.where('status').equals('pending').count(),
+      this.tasks.where('status').equals('pendiente' as any).count(),
       this.harvests.count(),
       this.expenses.count(),
       this.syncQueue.count()
@@ -926,7 +926,7 @@ export class OfflineDatabase extends Dexie {
         ...metadata,
         captureDate: new Date()
       },
-      analysisStatus: 'pending',
+      analysisStatus: 'pendiente' as any,
       pendingSync: true,
       action: 'create'
     });
@@ -948,7 +948,7 @@ export class OfflineDatabase extends Dexie {
     return await this.aiAnalysis.add({
       agentType,
       inputData,
-      status: 'pending',
+      status: 'pendiente' as any,
       priority,
       createdAt: new Date(),
       retryCount: 0,
@@ -977,7 +977,7 @@ export class OfflineDatabase extends Dexie {
     const analysis = await this.aiAnalysis.get(analysisId);
     if (analysis) {
       return await this.aiAnalysis.update(analysisId, {
-        status: 'pending',
+        status: 'pendiente' as any,
         retryCount: analysis.retryCount + 1,
         errorMessage: undefined
       });
@@ -1071,9 +1071,9 @@ export class OfflineDatabase extends Dexie {
       activeAgents
     ] = await Promise.all([
       this.aiImages.count(),
-      this.aiImages.where('analysisStatus').equals('pending').count(),
+      this.aiImages.where('analysisStatus').equals('pendiente' as any).count(),
       this.aiAnalysis.count(),
-      this.aiAnalysis.where('status').equals('pending').count(),
+      this.aiAnalysis.where('status').equals('pendiente' as any).count(),
       this.aiNotifications.where('isRead').equals(false).count(),
       this.aiConfigs.where('isActive').equals(true).count()
     ]);
@@ -1092,8 +1092,8 @@ export class OfflineDatabase extends Dexie {
   // Cola de procesamiento de IA
   async getAIPendingQueue(): Promise<AIProcessingQueue[]> {
     const [pendingImages, pendingAnalysis] = await Promise.all([
-      this.aiImages.where('analysisStatus').equals('pending').toArray(),
-      this.aiAnalysis.where('status').equals('pending').toArray()
+      this.aiImages.where('analysisStatus').equals('pendiente' as any).toArray(),
+      this.aiAnalysis.where('status').equals('pendiente' as any).toArray()
     ]);
 
     const queue: AIProcessingQueue[] = [];
@@ -1539,8 +1539,8 @@ export class OfflineDatabase extends Dexie {
       sessions
     ] = await Promise.all([
       this.aiAnalysis.where('agentType').equals(agentType).and(item => item.createdAt >= cutoffDate).count(),
-      this.aiAnalysis.where('agentType').equals(agentType).and(item => item.createdAt >= cutoffDate && item.status === 'completed').count(),
-      this.aiAnalysis.where('agentType').equals(agentType).and(item => item.createdAt >= cutoffDate && item.status === 'failed').count(),
+      this.aiAnalysis.where('agentType').equals(agentType).and(item => item.createdAt >= cutoffDate && item.status === ('completado' as any)).count(),
+      this.aiAnalysis.where('agentType').equals(agentType).and(item => item.createdAt >= cutoffDate && item.status === ('error' as any)).count(),
       this.aiAnalysis.where('agentType').equals(agentType).and(item => item.createdAt >= cutoffDate && item.processingTime).toArray(),
       this.aiImages.where('metadata.captureDate').above(cutoffDate).count(),
       this.aiNotifications.where('agentType').equals(agentType).and(item => item.createdAt >= cutoffDate).count(),
@@ -1571,7 +1571,7 @@ export class OfflineDatabase extends Dexie {
       totalNotifications,
       totalErrors,
       totalSessions: sessions.length,
-      completedSessions: sessions.filter(s => s.status === 'completed').length,
+      completedSessions: sessions.filter(s => s.status === ('completado' as any)).length,
       lastUpdated: new Date()
     };
   }

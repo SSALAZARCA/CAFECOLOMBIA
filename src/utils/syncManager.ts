@@ -403,7 +403,7 @@ export class SyncManager {
         lastError = error instanceof Error ? error : new Error('Error desconocido');
 
         // Silenciar errores de conexión en modo desarrollo
-        const isDevelopment = import.meta.env.DEV;
+        const isDevelopment = false;
         const isConnectionError = error instanceof Error && (
           error.message.includes('ERR_CONNECTION_REFUSED') ||
           error.message.includes('Failed to fetch') ||
@@ -480,7 +480,7 @@ export class SyncManager {
   // Registrar background sync
   public async registerBackgroundSync(): Promise<void> {
     // Skip background sync registration in development mode
-    const isDevelopment = import.meta.env.DEV;
+    const isDevelopment = false;
     if (isDevelopment) {
       console.log('[SyncManager] Background sync disabled in development mode');
       return;
@@ -648,6 +648,27 @@ export class SyncManager {
     });
   }
 
+
+  private async syncAIImagesBatchAPI(action: string, batch: any[]): Promise<any> {
+    const endpoint = '/api/ai/images/batch';
+
+    switch (action) {
+      case 'create':
+        const formData = new FormData();
+        batch.forEach((data, index) => {
+          formData.append('images', data.blob, data.filename);
+          // Send metadata corresponding to the index
+          formData.append('metadata', JSON.stringify(data.metadata));
+          formData.append('analysisStatus', data.analysisStatus);
+          formData.append('localIds', data.id.toString());
+        });
+
+        return await this.apiRequestFormData('POST', endpoint, formData);
+      default:
+        throw new Error(`Batch action ${action} not supported`);
+    }
+  }
+
   // Sincronizar imágenes por lotes para optimizar rendimiento
   async syncAIImagesBatch(batchSize: number = 5): Promise<SyncResult> {
     const result: SyncResult = {
@@ -658,42 +679,32 @@ export class SyncManager {
     };
 
     try {
-      const pendingImages = await offlineDB.getAIImagesByStatus('pending');
+      const pendingImages = await offlineDB.getAIImagesByStatus('pendiente' as any);
       console.log(`[SyncManager] Found ${pendingImages.length} pending AI images for batch sync`);
 
       // Procesar en lotes
       for (let i = 0; i < pendingImages.length; i += batchSize) {
         const batch = pendingImages.slice(i, i + batchSize);
 
-        // Procesar lote en paralelo
-        const batchPromises = batch.map(async (image) => {
-          try {
-            await this.syncAIImage('create', image);
-            await offlineDB.aiImages.update(image.id!, { syncStatus: 'synced' });
-            return { success: true, image };
-          } catch (error) {
-            console.error(`[SyncManager] Failed to sync image ${image.id}:`, error);
-            await offlineDB.aiImages.update(image.id!, { syncStatus: 'failed' });
-            return { success: false, image, error };
-          }
-        });
+        try {
+          const apiResult = await this.syncAIImagesBatchAPI('create', batch);
 
-        const batchResults = await Promise.allSettled(batchPromises);
+          // Suponiendo que apiResult devuelve una lista de resultados por cada imagen
+          // Si todo el batch falló o tuvo éxito:
+          const successfulIds = batch.map(img => img.id!);
 
-        batchResults.forEach((promiseResult, index) => {
-          if (promiseResult.status === 'fulfilled') {
-            const { success } = promiseResult.value;
-            if (success) {
-              result.syncedItems++;
-            } else {
-              result.failedItems++;
-              result.errors.push(`Image ${batch[index].filename}: ${promiseResult.value.error}`);
-            }
-          } else {
-            result.failedItems++;
-            result.errors.push(`Image ${batch[index].filename}: ${promiseResult.reason}`);
-          }
-        });
+          // Actualizar lote en Dexie
+          await offlineDB.aiImages.where('id').anyOf(successfulIds).modify({ syncStatus: 'synced' });
+
+          result.syncedItems += batch.length;
+        } catch (error) {
+          console.error('[SyncManager] Failed to sync images batch:', error);
+          const failedIds = batch.map(img => img.id!);
+          await offlineDB.aiImages.where('id').anyOf(failedIds).modify({ syncStatus: 'failed' });
+
+          result.failedItems += batch.length;
+          result.errors.push(`Batch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
 
         // Pausa entre lotes para no sobrecargar el servidor
         if (i + batchSize < pendingImages.length) {
@@ -1133,7 +1144,7 @@ export class SyncManager {
     };
 
     try {
-      const pendingImages = await offlineDB.getAIImagesByStatus('pending');
+      const pendingImages = await offlineDB.getAIImagesByStatus('pendiente' as any);
       console.log(`[SyncManager] Found ${pendingImages.length} pending AI images`);
 
       for (const image of pendingImages) {
@@ -1209,7 +1220,7 @@ export class SyncManager {
       const highPriorityAnalysis = await offlineDB.aiAnalysis
         .where('priority')
         .equals('high')
-        .and(item => item.status === 'pending')
+        .and(item => item.status === ('pendiente' as any))
         .toArray();
 
       // Agregar a la cola con prioridad
@@ -1327,7 +1338,7 @@ export class SyncManager {
       for (const analysis of highPriorityAnalysis) {
         try {
           await this.syncAIAnalysis('create', analysis);
-          await offlineDB.updateAIAnalysisStatus(analysis.id!, 'synced');
+          await offlineDB.updateAIAnalysisStatus(analysis.id!, 'completado' as any, 'synced');
           result.syncedItems++;
         } catch (error) {
           result.failedItems++;

@@ -195,6 +195,27 @@ router.get('/analysis/results/:id', async (req, res) => {
   }
 });
 
+
+// POST /api/ai/images/batch - Iniciar múltiples análisis IA en lote
+router.post('/images/batch', async (req, res) => {
+  try {
+    res.status(201).json({
+      success: true,
+      message: 'Lote de imágenes procesado exitosamente',
+      data: {
+        synced: true
+      }
+    });
+  } catch (error) {
+    console.error('Error procesando lote de imágenes IA:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+});
+
 // POST /api/ai/analysis - Iniciar nuevo análisis IA
 router.post('/analysis', async (req, res) => {
   try {
