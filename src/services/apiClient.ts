@@ -346,6 +346,72 @@ export class ApiClient {
       });
     }
 
+<<<<<<< Updated upstream
+    if (onProgress) {
+      return new Promise<ApiResponse<T>>((resolve) => {
+        const xhr = new XMLHttpRequest();
+
+        // Use relative URLs in development to leverage Vite proxy
+        const isDev = import.meta.env.MODE === 'development' || import.meta.env.DEV;
+        const url = isDev ? endpoint : `${this.baseUrl}${endpoint}`;
+
+        xhr.open('POST', url);
+
+        // Always get fresh token from localStorage
+        const token = localStorage.getItem('token');
+        if (token) {
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+
+        // Add default headers except Content-Type
+        Object.entries(this.defaultHeaders).forEach(([key, value]) => {
+          if (key.toLowerCase() !== 'content-type') {
+            xhr.setRequestHeader(key, value);
+          }
+        });
+
+        // Setup progress event
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            onProgress(progress);
+          }
+        };
+
+        xhr.onload = () => {
+          try {
+            let data;
+            try {
+              data = JSON.parse(xhr.responseText);
+            } catch {
+              data = xhr.responseText;
+            }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve({
+                success: true,
+                data: data.data || data,
+                message: data.message,
+                timestamp: new Date().toISOString()
+              });
+            } else {
+              resolve({
+                success: false,
+                error: data.message || `HTTP ${xhr.status}: ${xhr.statusText}`,
+                timestamp: new Date().toISOString()
+              });
+            }
+          } catch (error: any) {
+            resolve({
+              success: false,
+              error: error.message || 'Unknown error occurred',
+              timestamp: new Date().toISOString()
+            });
+          }
+        };
+
+        xhr.onerror = () => {
+=======
     if (!onProgress) {
       return this.post<T>(endpoint, formData);
     }
@@ -412,11 +478,31 @@ export class ApiClient {
             timestamp: new Date().toISOString()
           });
         } else {
+>>>>>>> Stashed changes
           resolve({
             success: false,
             error: 'Network error occurred during upload',
             timestamp: new Date().toISOString()
           });
+<<<<<<< Updated upstream
+        };
+
+        xhr.ontimeout = () => {
+          resolve({
+            success: false,
+            error: 'Upload timeout',
+            timestamp: new Date().toISOString()
+          });
+        };
+
+        xhr.timeout = this.timeout || 30000;
+        xhr.send(formData);
+      });
+    }
+
+    // Fallback to fetch post if no progress tracking is needed
+    return this.post<T>(endpoint, formData);
+=======
         }
       });
 
@@ -446,6 +532,7 @@ export class ApiClient {
 
       xhr.send(formData);
     });
+>>>>>>> Stashed changes
   }
 
   // Health check
