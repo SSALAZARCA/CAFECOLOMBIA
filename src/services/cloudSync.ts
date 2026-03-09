@@ -255,20 +255,22 @@ export class CloudSyncService {
       // Use 'pendiente'
       const pendingAnalysis = await offlineDB.getAIAnalysisByStatus('pendiente');
 
-      for (const analysis of pendingAnalysis.slice(0, this.config.batchSize)) {
-        try {
-          const success = await this.uploadAnalysisRequest(analysis);
-          if (success) {
-            result.uploaded++;
-          } else if (analysis.id) {
+      await Promise.all(
+        pendingAnalysis.slice(0, this.config.batchSize).map(async (analysis) => {
+          try {
+            const success = await this.uploadAnalysisRequest(analysis);
+            if (success) {
+              result.uploaded++;
+            } else if (analysis.id) {
+              result.failed++;
+              await this.handleRetry(analysis.id.toString());
+            }
+          } catch (error) {
             result.failed++;
-            await this.handleRetry(analysis.id.toString());
+            result.errors.push(`Failed to upload analysis ${analysis.id}: ${error}`);
           }
-        } catch (error) {
-          result.failed++;
-          result.errors.push(`Failed to upload analysis ${analysis.id}: ${error}`);
-        }
-      }
+        })
+      );
 
       const downloadResult = await this.downloadAnalysisResults();
       result.downloaded += downloadResult.downloaded;
@@ -453,7 +455,7 @@ export class CloudSyncService {
         }
       }
       const pendingWorkers = await offlineDB.workers.filter(w => !!w.pendingSync && w.action === 'create').toArray();
-      for (const worker of pendingWorkers) {
+      const workerPromises = pendingWorkers.map(async (worker) => {
         try {
           const res = await fetch(`${this.config.apiBaseUrl}/workers`, {
             method: 'POST',
@@ -463,11 +465,22 @@ export class CloudSyncService {
           if (res.ok) {
             const data = await res.json();
             if (worker.id) await offlineDB.workers.update(worker.id, { serverId: data.data.id, pendingSync: false, lastSync: new Date(), action: undefined });
-            result.uploaded++;
-          } else { if (!import.meta.env.DEV) result.failed++; }
+            return { success: true };
+          } else {
+            return { success: false, error: 'res not ok' };
+          }
         } catch (e) {
+          return { success: false, error: e };
+        }
+      });
+
+      const workerResults = await Promise.all(workerPromises);
+      for (const res of workerResults) {
+        if (res.success) {
+          result.uploaded++;
+        } else {
           result.failed++;
-          if (!import.meta.env.DEV) result.errors.push(`Error: ${e}`);
+          if (!import.meta.env.DEV && res.error !== 'res not ok') result.errors.push(`Error: ${res.error}`);
         }
       }
     } catch (error) { if (!import.meta.env.DEV) result.errors.push(`Error syncing workers: ${error}`); }

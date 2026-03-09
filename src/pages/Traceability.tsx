@@ -168,12 +168,13 @@ export default function Traceability() {
   const fetchMicrolots = async () => {
     try {
       // Obtener datos de la base de datos offline
-      const [realMicrolots, harvestsFromDB, lotsFromDB, farmsFromDB, eventsFromDB] = await Promise.all([
+      const [realMicrolots, harvestsFromDB, lotsFromDB, farmsFromDB, eventsFromDB, certsFromDB] = await Promise.all([
         offlineDB.microlots.toArray(),
         offlineDB.harvests.toArray(),
         offlineDB.lots.toArray(),
         offlineDB.farms.toArray(),
-        offlineDB.traceabilityEvents.toArray()
+        offlineDB.traceabilityEvents.toArray(),
+        offlineDB.certificationRecords.toArray()
       ]);
 
       // Mapear microlotes reales
@@ -204,6 +205,13 @@ export default function Traceability() {
           // So they should match.
           status = micEvents[0].stage as any;
         }
+
+        const microlotCerts = certsFromDB.filter(c => c.microlotId === m.id?.toString() || c.microlotId === m.code);
+        const mappedCerts = microlotCerts.map(c => ({
+          id: c.id?.toString() || '',
+          certificationType: c.certificationType,
+          status: c.status
+        }));
 
         return {
           id: m.id?.toString() || m.code, // Use DB ID or Code
@@ -281,6 +289,20 @@ export default function Traceability() {
         _count: { status: count }
       }));
 
+      // Certification Distribution
+      const certsFromDB = await offlineDB.certificationRecords.toArray();
+      const certificationCounts: Record<string, number> = {};
+      certsFromDB.forEach(c => {
+        if (c.status === 'ACTIVA') {
+          certificationCounts[c.certificationType] = (certificationCounts[c.certificationType] || 0) + 1;
+        }
+      });
+
+      const certificationDistribution = Object.entries(certificationCounts).map(([certificationType, count]) => ({
+        certificationType,
+        _count: { certificationType: count }
+      }));
+
       // Stats Object
       const stats: TraceabilityStats = {
         totalMicrolots,
@@ -288,7 +310,7 @@ export default function Traceability() {
         qualityMetrics: [
           { passed: true, _count: { passed: totalMicrolots }, _avg: { scaScore: 0 } }
         ],
-        certificationDistribution: [],
+        certificationDistribution,
         recentEvents: [] // Can populate if needed
       };
 
