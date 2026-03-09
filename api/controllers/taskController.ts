@@ -246,16 +246,18 @@ export const createTask = asyncHandler(async (req: Request, res: Response) => {
     });
 
     // Actualizar inventario
-    for (const usage of validatedData.inputUsage) {
-      await prisma.inventory.update({
-        where: { id: usage.inventoryId },
-        data: {
-          quantity: {
-            decrement: usage.quantityUsed
+    await prisma.$transaction(
+      validatedData.inputUsage.map((usage: any) =>
+        prisma.inventory.update({
+          where: { id: usage.inventoryId },
+          data: {
+            quantity: {
+              decrement: usage.quantityUsed
+            }
           }
-        }
-      });
-    }
+        })
+      )
+    );
   }
 
   // Obtener la tarea completa con los insumos
@@ -407,16 +409,18 @@ export const deleteTask = asyncHandler(async (req: Request, res: Response) => {
 
   // Si la tarea tiene uso de insumos pendientes, restaurar el inventario
   if (task.status !== 'COMPLETED' && task.inputUsage.length > 0) {
-    for (const usage of task.inputUsage) {
-      await prisma.inventory.update({
-        where: { id: usage.inventoryId },
-        data: {
-          quantity: {
-            increment: usage.quantityUsed
+    await prisma.$transaction(
+      task.inputUsage.map((usage: any) =>
+        prisma.inventory.update({
+          where: { id: usage.inventoryId },
+          data: {
+            quantity: {
+              increment: usage.quantityUsed
+            }
           }
-        }
-      });
-    }
+        })
+      )
+    );
   }
 
   // Eliminar la tarea (esto también eliminará los registros de uso por cascada)
