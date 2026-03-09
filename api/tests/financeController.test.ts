@@ -1,98 +1,180 @@
-import { createTransactionSchema } from '../controllers/financeController';
-import assert from 'node:assert';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createTransactionSchema, getTransactions } from '../controllers/financeController';
+import { Request, Response } from 'express';
+import prisma from '../lib/database';
 
-console.log('🧪 Iniciando pruebas del esquema createTransactionSchema...');
-
-try {
-  // Test 1: Valid data
-  console.log('📋 Test 1: Valid data passes validation');
-  const validData = {
-    farmId: 1,
-    type: 'INCOME',
-    category: 'Venta de café',
-    amount: 1500.50,
-    description: 'Venta de cosecha Q1',
-    date: new Date().toISOString(),
-    reference: 'REF-001',
-    paymentMethod: 'BANK_TRANSFER',
-    tags: ['cosecha', '2024']
+vi.mock('../lib/database', () => {
+  return {
+    default: {
+      transaction: {
+        findMany: vi.fn(),
+        count: vi.fn()
+      }
+    }
   };
-  const result1 = createTransactionSchema.safeParse(validData);
-  assert.strictEqual(result1.success, true, 'Valid data should pass');
-  console.log('✅ Test 1 passed');
+});
 
-  // Test 2: Invalid type
-  console.log('📋 Test 2: Invalid type fails validation');
-  const invalidTypeData = { ...validData, type: 'INVALID_TYPE' };
-  const result2 = createTransactionSchema.safeParse(invalidTypeData);
-  assert.strictEqual(result2.success, false, 'Invalid type should fail');
-  console.log('✅ Test 2 passed');
+describe('financeController', () => {
+  describe('createTransactionSchema', () => {
+    it('Valid data passes validation', () => {
+      const validData = {
+        farmId: 1,
+        type: 'INCOME',
+        category: 'Venta de café',
+        amount: 1500.50,
+        description: 'Venta de cosecha Q1',
+        date: new Date().toISOString(),
+        reference: 'REF-001',
+        paymentMethod: 'BANK_TRANSFER',
+        tags: ['cosecha', '2024']
+      };
+      const result = createTransactionSchema.safeParse(validData);
+      expect(result.success).toBe(true);
+    });
 
-  // Test 3: Missing required fields
-  console.log('📋 Test 3: Missing required fields fails validation');
-  const missingFieldsData = {
-    farmId: 1,
-    type: 'INCOME', // Make it income so it passes type validation if broken
-    // category is missing
-    amount: 100,
-    // description is missing
-    date: new Date().toISOString()
-  };
-  const result3 = createTransactionSchema.safeParse(missingFieldsData);
-  assert.strictEqual(result3.success, false, 'Missing required fields should fail');
-  if (!result3.success) {
-      assert.strictEqual(result3.error.issues.some(i => i.path.includes('category')), true, 'Should complain about category');
-      assert.strictEqual(result3.error.issues.some(i => i.path.includes('description')), true, 'Should complain about description');
-  }
-  console.log('✅ Test 3 passed');
+    it('Invalid type fails validation', () => {
+      const invalidTypeData = {
+        farmId: 1,
+        type: 'INVALID_TYPE',
+        category: 'Venta de café',
+        amount: 1500.50,
+        description: 'Venta de cosecha Q1',
+        date: new Date().toISOString()
+      };
+      const result = createTransactionSchema.safeParse(invalidTypeData);
+      expect(result.success).toBe(false);
+    });
 
-  // Test 4: Invalid amount (negative)
-  console.log('📋 Test 4: Invalid amount (negative) fails validation');
-  const negativeAmountData = { ...validData, amount: -50 };
-  const result4 = createTransactionSchema.safeParse(negativeAmountData);
-  assert.strictEqual(result4.success, false, 'Negative amount should fail');
-  if (!result4.success) {
-      assert.strictEqual(result4.error.issues[0].message, 'El monto debe ser positivo');
-  }
-  console.log('✅ Test 4 passed');
+    it('Missing required fields fails validation', () => {
+      const missingFieldsData = {
+        farmId: 1,
+        type: 'INCOME',
+        amount: 100,
+        date: new Date().toISOString()
+      };
+      const result = createTransactionSchema.safeParse(missingFieldsData);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some(i => i.path.includes('category'))).toBe(true);
+        expect(result.error.issues.some(i => i.path.includes('description'))).toBe(true);
+      }
+    });
 
-  // Test 5: Invalid date format
-  console.log('📋 Test 5: Invalid date format fails validation');
-  const invalidDateData = { ...validData, date: '2024-05-32' }; // invalid day
-  const result5 = createTransactionSchema.safeParse(invalidDateData);
-  assert.strictEqual(result5.success, false, 'Invalid date string should fail');
-  console.log('✅ Test 5 passed');
+    it('Invalid amount (negative) fails validation', () => {
+      const negativeAmountData = {
+        farmId: 1,
+        type: 'INCOME',
+        category: 'Venta de café',
+        amount: -50,
+        description: 'Venta de cosecha Q1',
+        date: new Date().toISOString()
+      };
+      const result = createTransactionSchema.safeParse(negativeAmountData);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toBe('El monto debe ser positivo');
+      }
+    });
 
-  // Test 6: Empty category and description
-  console.log('📋 Test 6: Empty strings for category and description fails validation');
-  const emptyStringsData = { ...validData, category: '', description: '' };
-  const result6 = createTransactionSchema.safeParse(emptyStringsData);
-  assert.strictEqual(result6.success, false, 'Empty strings should fail');
-  if (!result6.success) {
-      assert.strictEqual(result6.error.issues.some(i => i.message === 'La categoría es requerida'), true);
-      assert.strictEqual(result6.error.issues.some(i => i.message === 'La descripción es requerida'), true);
-  }
-  console.log('✅ Test 6 passed');
+    it('Invalid date format fails validation', () => {
+      const invalidDateData = {
+        farmId: 1,
+        type: 'INCOME',
+        category: 'Venta de café',
+        amount: 1500.50,
+        description: 'Venta de cosecha Q1',
+        date: '2024-05-32'
+      };
+      const result = createTransactionSchema.safeParse(invalidDateData);
+      expect(result.success).toBe(false);
+    });
 
-  console.log('🎉 Todas las pruebas del esquema createTransactionSchema completadas exitosamente!');
-} catch (error) {
-  console.error('❌ Error en las pruebas:', error);
-  process.exit(1);
-}
+    it('Empty strings for category and description fails validation', () => {
+      const emptyStringsData = {
+        farmId: 1,
+        type: 'INCOME',
+        category: '',
+        amount: 1500.50,
+        description: '',
+        date: new Date().toISOString()
+      };
+      const result = createTransactionSchema.safeParse(emptyStringsData);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some(i => i.message === 'La categoría es requerida')).toBe(true);
+        expect(result.error.issues.some(i => i.message === 'La descripción es requerida')).toBe(true);
+      }
+    });
 
-try {
-    const expenseData = {
+    it('Expense type passes validation', () => {
+      const expenseData = {
         farmId: 1,
         type: 'EXPENSE',
         category: 'Insumos',
         amount: 1500.50,
         description: 'Compra de abono',
-        date: new Date().toISOString(),
-    };
-    const result7 = createTransactionSchema.safeParse(expenseData);
-    assert.strictEqual(result7.success, true, 'Expense data should pass');
-    console.log('✅ Test 7 (Expense type) passed');
-} catch (error) {
-    console.error('❌ Error en test 7:', error);
-    process.exit(1);
-}
+        date: new Date().toISOString()
+      };
+      const result = createTransactionSchema.safeParse(expenseData);
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('getTransactions pagination', () => {
+    let mockReq: Partial<Request>;
+    let mockRes: Partial<Response>;
+
+    beforeEach(() => {
+      mockReq = {
+        user: { id: 1 } as any,
+        query: {}
+      };
+      mockRes = {
+        json: vi.fn(),
+        status: vi.fn().mockReturnThis()
+      };
+      vi.clearAllMocks();
+
+      // Default mocks for prisma
+      (prisma.transaction.findMany as any).mockResolvedValue([]);
+      (prisma.transaction.count as any).mockResolvedValue(0);
+    });
+
+    it('should use default page=1 and limit=20', async () => {
+      await getTransactions(mockReq as Request, mockRes as Response, vi.fn());
+
+      expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 0,
+          take: 20
+        })
+      );
+    });
+
+    it('should calculate skip correctly for custom page and limit', async () => {
+      mockReq.query = { page: '3', limit: '10' };
+
+      await getTransactions(mockReq as Request, mockRes as Response, vi.fn());
+
+      expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 20, // (3 - 1) * 10
+          take: 10
+        })
+      );
+    });
+
+    it('should parse string query parameters correctly', async () => {
+      mockReq.query = { page: '5', limit: '15' };
+
+      await getTransactions(mockReq as Request, mockRes as Response, vi.fn());
+
+      expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 60, // (5 - 1) * 15
+          take: 15
+        })
+      );
+    });
+  });
+});
