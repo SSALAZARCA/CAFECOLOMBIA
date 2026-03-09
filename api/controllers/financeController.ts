@@ -51,6 +51,7 @@ export const getTransactions = asyncHandler(async (req: Request, res: Response) 
     limit = 20 
   } = req.query;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {
     farm: { userId }
   };
@@ -284,6 +285,7 @@ export const getBudgets = asyncHandler(async (req: Request, res: Response) => {
     limit = 20 
   } = req.query;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {
     farm: { userId }
   };
@@ -323,30 +325,55 @@ export const getBudgets = asyncHandler(async (req: Request, res: Response) => {
     prisma.budget.count({ where })
   ]);
 
-  // Calcular gastos actuales para cada presupuesto
-  const budgetsWithSpent = await Promise.all(
-    budgets.map(async (budget) => {
-      const spent = await prisma.transaction.aggregate({
-        where: {
-          farmId: budget.farmId,
-          type: 'EXPENSE',
-          category: { contains: budget.category, mode: 'insensitive' },
-          date: {
-            gte: budget.startDate,
-            lte: budget.endDate
-          }
-        },
-        _sum: { amount: true }
-      });
+  // Calcular gastos actuales para cada presupuesto (Optimizado)
+  let budgetsWithSpent: Array<Record<string, unknown>> = [];
+  if (budgets.length > 0) {
+    const farmIds = [...new Set(budgets.map((b: { farmId: number }) => b.farmId))];
+    const minDate = new Date(Math.min(...budgets.map((b: { startDate: Date }) => b.startDate.getTime())));
+    const maxDate = new Date(Math.max(...budgets.map((b: { endDate: Date }) => b.endDate.getTime())));
+
+    // Obtener todas las transacciones relevantes en una sola consulta limitando a min/max date.
+    // Esto es seguro porque la data está paginada, reduciendo la ventana de fechas considerablemente.
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        farmId: { in: farmIds },
+        type: 'EXPENSE',
+        date: {
+          gte: minDate,
+          lte: maxDate
+        }
+      },
+      select: {
+        farmId: true,
+        category: true,
+        amount: true,
+        date: true
+      }
+    });
+
+    budgetsWithSpent = budgets.map((budget: { farmId: number; category: string; startDate: Date; endDate: Date; amount: number; [key: string]: unknown }) => {
+      const budgetCategory = budget.category.toLowerCase();
+
+      // Filtrar en memoria para cada presupuesto, validando la categoría con null checks
+      const spentAmount = transactions
+        .filter((t: { farmId: number; category: string | null; date: Date }) =>
+          t.farmId === budget.farmId &&
+          t.date >= budget.startDate &&
+          t.date <= budget.endDate &&
+          (t.category || '').toLowerCase().includes(budgetCategory)
+        )
+        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
 
       return {
         ...budget,
-        spent: spent._sum.amount || 0,
-        remaining: budget.amount - (spent._sum.amount || 0),
-        percentage: ((spent._sum.amount || 0) / budget.amount) * 100
+        spent: spentAmount,
+        remaining: budget.amount - spentAmount,
+        percentage: (spentAmount / budget.amount) * 100
       };
-    })
-  );
+    });
+  } else {
+    budgetsWithSpent = [];
+  }
 
   res.json({
     success: true,
@@ -539,8 +566,10 @@ export const deleteBudget = asyncHandler(async (req: Request, res: Response) => 
 // Obtener estadísticas financieras
 export const getFinancialStats = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.id;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { farmId, startDate, endDate, period = 'monthly' } = req.query;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {
     farm: { userId }
   };
@@ -605,7 +634,8 @@ export const getFinancialStats = asyncHandler(async (req: Request, res: Response
   ]);
 
   // Agrupar transacciones por mes
-  const monthlyData = transactionsByMonth.reduce((acc, transaction) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const monthlyData = transactionsByMonth.reduce((acc: any, transaction) => {
     const month = transaction.date.toISOString().slice(0, 7); // YYYY-MM
     if (!acc[month]) {
       acc[month] = { income: 0, expenses: 0 };
@@ -616,32 +646,56 @@ export const getFinancialStats = asyncHandler(async (req: Request, res: Response
       acc[month].expenses += transaction.amount;
     }
     return acc;
-  }, {} as any);
+  }, {});
 
-  // Calcular estado de presupuestos
-  const budgetStatusWithSpent = await Promise.all(
-    budgetStatus.map(async (budget) => {
-      const spent = await prisma.transaction.aggregate({
-        where: {
-          farmId: budget.farmId,
-          type: 'EXPENSE',
-          category: { contains: budget.category, mode: 'insensitive' },
-          date: {
-            gte: budget.startDate,
-            lte: budget.endDate
-          }
-        },
-        _sum: { amount: true }
-      });
+  // Calcular estado de presupuestos (Optimizado)
+  let budgetStatusWithSpent: Array<Record<string, unknown>> = [];
+  if (budgetStatus.length > 0) {
+    const farmIds = [...new Set(budgetStatus.map((b: { farmId: number }) => b.farmId))];
+    const minDate = new Date(Math.min(...budgetStatus.map((b: { startDate: Date }) => b.startDate.getTime())));
+    const maxDate = new Date(Math.max(...budgetStatus.map((b: { endDate: Date }) => b.endDate.getTime())));
+
+    // Obtener todas las transacciones relevantes en una sola consulta
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        farmId: { in: farmIds },
+        type: 'EXPENSE',
+        date: {
+          gte: minDate,
+          lte: maxDate
+        }
+      },
+      select: {
+        farmId: true,
+        category: true,
+        amount: true,
+        date: true
+      }
+    });
+
+    budgetStatusWithSpent = budgetStatus.map((budget: { farmId: number; category: string; startDate: Date; endDate: Date; amount: number; [key: string]: unknown }) => {
+      const budgetCategory = budget.category.toLowerCase();
+
+      // Filtrar en memoria para cada presupuesto, validando categoría con null checks
+      const spentAmount = transactions
+        .filter((t: { farmId: number; category: string | null; date: Date }) =>
+          t.farmId === budget.farmId &&
+          t.date >= budget.startDate &&
+          t.date <= budget.endDate &&
+          (t.category || '').toLowerCase().includes(budgetCategory)
+        )
+        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
 
       return {
         ...budget,
-        spent: spent._sum.amount || 0,
-        remaining: budget.amount - (spent._sum.amount || 0),
-        percentage: ((spent._sum.amount || 0) / budget.amount) * 100
+        spent: spentAmount,
+        remaining: budget.amount - spentAmount,
+        percentage: (spentAmount / budget.amount) * 100
       };
-    })
-  );
+    });
+  } else {
+    budgetStatusWithSpent = [];
+  }
 
   const stats = {
     summary: {
@@ -651,7 +705,8 @@ export const getFinancialStats = asyncHandler(async (req: Request, res: Response
       incomeTransactions: totalIncome._count.id,
       expenseTransactions: totalExpenses._count.id
     },
-    categoryBreakdown: transactionsByCategory.reduce((acc, item) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    categoryBreakdown: transactionsByCategory.reduce((acc: any, item) => {
       if (!acc[item.type]) {
         acc[item.type] = {};
       }
@@ -660,11 +715,14 @@ export const getFinancialStats = asyncHandler(async (req: Request, res: Response
         count: item._count.id
       };
       return acc;
-    }, {} as any),
+    }, {}),
     monthlyTrends: Object.entries(monthlyData).map(([month, data]) => ({
       month,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       income: (data as any).income,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expenses: (data as any).expenses,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       profit: (data as any).income - (data as any).expenses
     })).sort((a, b) => a.month.localeCompare(b.month)),
     budgetStatus: budgetStatusWithSpent
@@ -686,6 +744,7 @@ export const getCashFlowReport = asyncHandler(async (req: Request, res: Response
     throw new ValidationError('Las fechas de inicio y fin son requeridas');
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {
     farm: { userId },
     date: {
