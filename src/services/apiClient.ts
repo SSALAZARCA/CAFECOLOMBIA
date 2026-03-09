@@ -252,25 +252,14 @@ export class ApiClient {
           error.name === 'TypeError'
         );
 
-        // In development mode, silently handle backend connection errors
+        // In development mode, log backend connection errors and handle them
         if (isDevelopment && isConnectionError && isBackendUrl) {
-          // Don't log errors to console, just return offline response
-          // FIX: Don't swallow errors, we need to see them to debug!
           console.error('🔥 Backend connection error details:', {
             url,
             error: error.message,
             stack: error.stack,
             name: error.name
           });
-          /*
-          clearTimeout(timeoutId);
-          return {
-            success: false,
-            error: 'offline_mode',
-            message: 'Backend service unavailable - running in offline mode',
-            timestamp: new Date().toISOString()
-          };
-          */
         }
 
         // Don't retry on abort or certain errors
@@ -298,7 +287,6 @@ export class ApiClient {
     clearTimeout(timeoutId);
 
     // Return error response
-    // Return error response
     // Only return offline_mode if it was truly a connection error that we couldn't recover from
     const isNetworkError = lastError?.message?.includes('fetch') || lastError?.message?.includes('Failed to fetch') || lastError?.name === 'TypeError';
 
@@ -309,7 +297,9 @@ export class ApiClient {
     return {
       success: false,
       error: errorMessage,
-      message: (isDevelopment && isBackendUrl && isNetworkError) ? 'Backend service unavailable - running in offline mode' : undefined,
+      message: (isDevelopment && isBackendUrl && isNetworkError)
+        ? `Backend service unavailable (${lastError?.message}) - running in offline mode`
+        : undefined,
       timestamp: new Date().toISOString()
     };
   }
