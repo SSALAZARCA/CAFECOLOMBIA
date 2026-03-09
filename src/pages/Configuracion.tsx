@@ -79,7 +79,9 @@ export default function Configuracion() {
         setError(null);
 
         // Usamos apiClient.get para consistencia y manejo de errores (offline, 401)
-        const data = await apiClient.get('/dashboard');
+        const response = await apiClient.get('/api/dashboard');
+        let data: any = (response as any).data || response;
+        if (data.data) data = data.data;
 
         // Backend devuelve { success: true, data: { ... } } o directamente los datos si apiClient los desempaqueta
         // Asumimos que apiClient devuelve response.data (la estructura JSON)
@@ -135,7 +137,7 @@ export default function Configuracion() {
       };
 
       // Usar apiClient para el PUT
-      await apiClient.put('/dashboard', payload);
+      await apiClient.put('/api/dashboard', payload);
 
       setSavedMsg('Configuración actualizada correctamente en la base de datos.');
 

@@ -588,11 +588,3 @@ export class AIUtils {
     return Math.round(baseTime * sizeFactor * priorityFactor);
   }
 }
-
-// Exportar constantes y utilidades
-export {
-  COFFEE_PESTS,
-  COFFEE_PLANT_PARTS,
-  SEVERITY_LEVELS,
-  OPTIMAL_CONDITIONS
-};

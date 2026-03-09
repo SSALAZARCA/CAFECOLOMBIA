@@ -13,15 +13,7 @@ router.get('/', requirePermission('settings.view'), asyncHandler(async (req: Aut
   const { category = 'all' } = req.query;
 
   try {
-    let whereCondition = '1=1';
-    const queryParams: any[] = [];
-
-    if (category !== 'all') {
-      whereCondition = 'category = ?';
-      queryParams.push(category);
-    }
-
-    const [settings] = await executeQuery(`
+    let query = `
       SELECT 
         id,
         category,
@@ -33,9 +25,18 @@ router.get('/', requirePermission('settings.view'), asyncHandler(async (req: Aut
         updated_at,
         updated_by
       FROM system_settings 
-      WHERE ${whereCondition}
-      ORDER BY category, setting_key
-    `, queryParams);
+      WHERE 1=1
+    `;
+    const queryParams: any[] = [];
+
+    if (category !== 'all') {
+      query += ' AND category = ?';
+      queryParams.push(category);
+    }
+
+    query += ' ORDER BY category, setting_key';
+
+    const [settings] = await executeQuery(query, queryParams);
 
     // Agrupar configuraciones por categoría
     const groupedSettings = (settings as any[]).reduce((acc, setting) => {
@@ -462,18 +463,16 @@ router.post('/reset', requirePermission('settings.manage'), asyncHandler(async (
 
   try {
     await executeTransaction(async (connection) => {
-      let whereCondition = '1=1';
+      let query = 'SELECT setting_key, setting_value FROM system_settings WHERE 1=1';
       const queryParams: any[] = [];
 
       if (category) {
-        whereCondition = 'category = ?';
+        query += ' AND category = ?';
         queryParams.push(category);
       }
 
       // Obtener configuraciones actuales para el log
-      const [currentSettings] = await connection.execute(`
-        SELECT setting_key, setting_value FROM system_settings WHERE ${whereCondition}
-      `, queryParams) as any[];
+      const [currentSettings] = await connection.execute(query, queryParams) as any[];
 
       // Restablecer a valores por defecto (esto depende de tu lógica de negocio)
       // Por ahora, solo registramos la acción
@@ -511,12 +510,7 @@ router.get('/export/all', requirePermission('settings.export'), asyncHandler(asy
   const { format = 'json', includePrivate = false } = req.query;
 
   try {
-    let whereCondition = '1=1';
-    if (!includePrivate) {
-      whereCondition = 'is_public = true';
-    }
-
-    const [settings] = await executeQuery(`
+    let query = `
       SELECT 
         category,
         setting_key,
@@ -525,9 +519,17 @@ router.get('/export/all', requirePermission('settings.export'), asyncHandler(asy
         data_type,
         is_public
       FROM system_settings 
-      WHERE ${whereCondition}
-      ORDER BY category, setting_key
-    `);
+      WHERE 1=1
+    `;
+    const queryParams: any[] = [];
+
+    if (includePrivate !== 'true' && includePrivate !== true) {
+      query += ' AND is_public = true';
+    }
+
+    query += ' ORDER BY category, setting_key';
+
+    const [settings] = await executeQuery(query, queryParams);
 
     // Log de auditoría
     await executeQuery(`

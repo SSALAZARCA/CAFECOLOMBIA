@@ -180,11 +180,13 @@ router.post('/register', asyncHandler(async (req, res) => {
       }
 
       // Agregar certificaciones si existen
-      for (const certification of certifications) {
-        await connection.execute(
-          `INSERT INTO farm_certifications (farm_id, certification_name, status, created_at) 
-           VALUES (?, ?, 'active', NOW())`,
-          [farmId, certification]
+      if (certifications && certifications.length > 0) {
+        const now = new Date();
+        const certificationValues = certifications.map((cert: string) => [farmId, cert, 'active', now]);
+
+        await connection.query(
+          `INSERT INTO farm_certifications (farm_id, certification_name, status, created_at) VALUES ?`,
+          [certificationValues]
         );
       }
 

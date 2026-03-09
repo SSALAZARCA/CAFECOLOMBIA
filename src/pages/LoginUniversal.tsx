@@ -85,25 +85,9 @@ const LoginUniversal: React.FC = () => {
         try { result = await response.json(); } catch { result = null; }
 
         if (!response.ok) {
-          // DEV BYPASS: If we are in dev mode and backend is down (404/500/etc), mock success
-          if (import.meta.env.DEV) {
-            console.warn('⚠️ [DEV] Backend Error, using fallback Mock Login');
-            result = {
-              token: 'mock-dev-token-' + Date.now(),
-              user: {
-                id: 'dev-user-1',
-                email: data.email,
-                name: 'Dev User',
-                tipo_usuario: 'coffee_grower',
-                role: 'coffee_grower'
-              }
-            };
-            // Fall through to success handling below
-          } else {
-            const msg = result?.message || `Error de autenticación (${attempt.note})`;
-            lastError = new Error(msg);
-            continue; // probar siguiente intento
-          }
+          const msg = result?.message || `Error de autenticación (${attempt.note})`;
+          lastError = new Error(msg);
+          continue; // probar siguiente intento
         }
 
         // Guardar token y usuario
@@ -132,21 +116,6 @@ const LoginUniversal: React.FC = () => {
         else navigate('/dashboard'); // Por defecto ir al dashboard de caficultor
         return; // éxito, salir
       } catch (err) {
-        // DEV BYPASS: If fetch throws (network error), mock success
-        if (import.meta.env.DEV) {
-          console.warn('⚠️ [DEV] Network Error, using fallback Mock Login');
-          const mockUser = {
-            id: 'dev-user-1',
-            email: data.email,
-            name: 'Dev User',
-            tipo_usuario: 'coffee_grower',
-            role: 'coffee_grower'
-          };
-          localStorage.setItem('token', 'mock-dev-token-' + Date.now());
-          localStorage.setItem('user', JSON.stringify(mockUser));
-          navigate('/dashboard');
-          return;
-        }
         lastError = err;
       }
     }
@@ -174,9 +143,11 @@ const LoginUniversal: React.FC = () => {
             return;
           }
 
-          // Si el rol NO es admin, cerrar sesión de adminStore y continuar con login general
+          // Si el rol NO es admin, limpiar sesión de adminStore silenciosamente y continuar con login general
           try {
-            await adminState.logout?.();
+            // we don't call logout as it triggers a toast. We can just clear it.
+            // Or maybe it's fine, let's just make the toast only show if there was actually a session?
+            // Let's comment this out since general auth manages its own state
           } catch { }
 
           await tryGeneralLogin(data);
