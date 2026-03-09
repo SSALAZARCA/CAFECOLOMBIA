@@ -247,30 +247,55 @@ export const useBatchAnalysis = () => {
     setBatchResults([]);
     setBatchErrors([]);
 
-    const results: AIAnalysisResult[] = [];
+    let completedCount = 0;
+
+    const processSingleRequest = async (request: AIAnalysisRequest): Promise<AIAnalysisResult | null> => {
+      try {
+        const analysisId = await aiService.requestAnalysis(request);
+        
+        // Poll for result instead of using a static artificial sleep
+        const maxAttempts = 600; // 5 minutes max at 500ms intervals
+        let attempts = 0;
+        
+        while (attempts < maxAttempts) {
+          const result = await aiService.getAnalysisResult(analysisId);
+          if (result && (result.status === 'completed' || result.status === 'failed')) {
+            if (result.status === 'failed') {
+              throw new Error(result.error || 'Analysis failed');
+            }
+            return result;
+          }
+          await new Promise(resolve => setTimeout(resolve, 500));
+          attempts++;
+        }
+
+        throw new Error('Analysis timeout');
+      } catch (error) {
+        throw error;
+      } finally {
+        completedCount++;
+        setBatchProgress((completedCount / requests.length) * 100);
+      }
+    };
+
+    const results: (AIAnalysisResult | null)[] = new Array(requests.length).fill(null);
     const errors: string[] = [];
 
-    for (let i = 0; i < requests.length; i++) {
-      try {
-        const analysisId = await aiService.requestAnalysis(requests[i]);
-        
-        // Esperar resultado (simplificado para el ejemplo)
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const result = await aiService.getAnalysisResult(analysisId);
-        if (result) {
-          results.push(result);
+    await Promise.all(
+      requests.map(async (req, index) => {
+        try {
+          const result = await processSingleRequest(req);
+          if (result) {
+            results[index] = result;
+          }
+        } catch (error) {
+          errors.push(error instanceof Error ? error.message : 'Unknown error');
         }
-      } catch (error) {
-        errors.push(error instanceof Error ? error.message : 'Unknown error');
-      }
+      })
+    );
 
-      // Actualizar progreso
-      const progress = ((i + 1) / requests.length) * 100;
-      setBatchProgress(progress);
-    }
-
-    setBatchResults(results);
+    // Filter out any nulls that might have occurred if a request failed or returned null
+    setBatchResults(results.filter((r): r is AIAnalysisResult => r !== null));
     setBatchErrors(errors);
     setIsProcessingBatch(false);
   }, []);
