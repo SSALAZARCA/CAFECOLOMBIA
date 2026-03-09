@@ -323,30 +323,63 @@ export const getBudgets = asyncHandler(async (req: Request, res: Response) => {
     prisma.budget.count({ where })
   ]);
 
-  // Calcular gastos actuales para cada presupuesto
-  const budgetsWithSpent = await Promise.all(
-    budgets.map(async (budget) => {
-      const spent = await prisma.transaction.aggregate({
-        where: {
-          farmId: budget.farmId,
-          type: 'EXPENSE',
-          category: { contains: budget.category, mode: 'insensitive' },
-          date: {
-            gte: budget.startDate,
-            lte: budget.endDate
-          }
-        },
-        _sum: { amount: true }
-      });
+  // Calcular gastos actuales para cada presupuesto (Optimización: 1 consulta en lugar de N)
+  let budgetsWithSpent = budgets as any[];
+
+  if (budgets.length > 0) {
+    const minDate = new Date(budgets.reduce((min, b) => Math.min(min, b.startDate.getTime()), Infinity));
+    const maxDate = new Date(budgets.reduce((max, b) => Math.max(max, b.endDate.getTime()), -Infinity));
+    const farmIds = Array.from(new Set(budgets.map(b => b.farmId)));
+
+    const expenses = await prisma.transaction.findMany({
+      where: {
+        farmId: { in: farmIds },
+        type: 'EXPENSE',
+        date: {
+          gte: minDate,
+          lte: maxDate
+        }
+      },
+      select: {
+        farmId: true,
+        category: true,
+        amount: true,
+        date: true
+      }
+    });
+
+    const expensesProcessed = expenses.map(e => ({
+      ...e,
+      time: e.date.getTime(),
+      catLower: e.category.toLowerCase()
+    }));
+
+    budgetsWithSpent = budgets.map((budget) => {
+      const categoryLower = budget.category.toLowerCase();
+      const startTimestamp = budget.startDate.getTime();
+      const endTimestamp = budget.endDate.getTime();
+
+      let spentAmount = 0;
+      for (let i = 0; i < expensesProcessed.length; i++) {
+        const e = expensesProcessed[i];
+        if (
+          e.farmId === budget.farmId &&
+          e.time >= startTimestamp &&
+          e.time <= endTimestamp &&
+          e.catLower.includes(categoryLower)
+        ) {
+          spentAmount += e.amount;
+        }
+      }
 
       return {
         ...budget,
-        spent: spent._sum.amount || 0,
-        remaining: budget.amount - (spent._sum.amount || 0),
-        percentage: ((spent._sum.amount || 0) / budget.amount) * 100
+        spent: spentAmount,
+        remaining: budget.amount - spentAmount,
+        percentage: (spentAmount / budget.amount) * 100
       };
-    })
-  );
+    });
+  }
 
   res.json({
     success: true,
@@ -618,30 +651,63 @@ export const getFinancialStats = asyncHandler(async (req: Request, res: Response
     return acc;
   }, {} as any);
 
-  // Calcular estado de presupuestos
-  const budgetStatusWithSpent = await Promise.all(
-    budgetStatus.map(async (budget) => {
-      const spent = await prisma.transaction.aggregate({
-        where: {
-          farmId: budget.farmId,
-          type: 'EXPENSE',
-          category: { contains: budget.category, mode: 'insensitive' },
-          date: {
-            gte: budget.startDate,
-            lte: budget.endDate
-          }
-        },
-        _sum: { amount: true }
-      });
+  // Calcular estado de presupuestos (Optimización: 1 consulta en lugar de N)
+  let budgetStatusWithSpent = budgetStatus as any[];
+
+  if (budgetStatus.length > 0) {
+    const minDate = new Date(budgetStatus.reduce((min, b) => Math.min(min, b.startDate.getTime()), Infinity));
+    const maxDate = new Date(budgetStatus.reduce((max, b) => Math.max(max, b.endDate.getTime()), -Infinity));
+    const farmIds = Array.from(new Set(budgetStatus.map(b => b.farmId)));
+
+    const expenses = await prisma.transaction.findMany({
+      where: {
+        farmId: { in: farmIds },
+        type: 'EXPENSE',
+        date: {
+          gte: minDate,
+          lte: maxDate
+        }
+      },
+      select: {
+        farmId: true,
+        category: true,
+        amount: true,
+        date: true
+      }
+    });
+
+    const expensesProcessed = expenses.map(e => ({
+      ...e,
+      time: e.date.getTime(),
+      catLower: e.category.toLowerCase()
+    }));
+
+    budgetStatusWithSpent = budgetStatus.map((budget) => {
+      const categoryLower = budget.category.toLowerCase();
+      const startTimestamp = budget.startDate.getTime();
+      const endTimestamp = budget.endDate.getTime();
+
+      let spentAmount = 0;
+      for (let i = 0; i < expensesProcessed.length; i++) {
+        const e = expensesProcessed[i];
+        if (
+          e.farmId === budget.farmId &&
+          e.time >= startTimestamp &&
+          e.time <= endTimestamp &&
+          e.catLower.includes(categoryLower)
+        ) {
+          spentAmount += e.amount;
+        }
+      }
 
       return {
         ...budget,
-        spent: spent._sum.amount || 0,
-        remaining: budget.amount - (spent._sum.amount || 0),
-        percentage: ((spent._sum.amount || 0) / budget.amount) * 100
+        spent: spentAmount,
+        remaining: budget.amount - spentAmount,
+        percentage: (spentAmount / budget.amount) * 100
       };
-    })
-  );
+    });
+  }
 
   const stats = {
     summary: {
