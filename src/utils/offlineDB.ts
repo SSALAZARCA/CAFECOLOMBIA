@@ -459,6 +459,23 @@ export interface OfflineMicrolot {
   action?: 'create' | 'update' | 'delete';
 }
 
+export interface OfflineCertificationRecord {
+  id?: number;
+  serverId?: string;
+  microlotId: string;
+  certificationType: string;
+  certificationBody: string;
+  certificateNumber: string;
+  issueDate: string;
+  expiryDate: string;
+  status: string;
+  documentUrl?: string;
+  notes?: string;
+  lastSync?: Date;
+  pendingSync?: boolean;
+  action?: 'create' | 'update' | 'delete';
+}
+
 // Interfaces para Trabajadores
 export interface OfflineFarmWorker {
   id?: number;
@@ -514,6 +531,7 @@ export class OfflineDatabase extends Dexie {
   microlots!: Table<OfflineMicrolot>;
   expenses!: Table<OfflineExpense>;
   traceabilityEvents!: Table<OfflineTraceabilityEvent>;
+  certificationRecords!: Table<OfflineCertificationRecord>;
 
   // Tablas de Trabajadores
   workers!: Table<OfflineFarmWorker>;
@@ -595,6 +613,7 @@ export class OfflineDatabase extends Dexie {
       // Trazabilidad Tables
       microlots: '++id, serverId, code, lotId, lastSync, pendingSync',
       traceabilityEvents: '++id, serverId, microlotId, stage, timestamp, lastSync, pendingSync',
+      certificationRecords: '++id, serverId, microlotId, status, lastSync, pendingSync',
       // Workers Tables (New)
       workers: '++id, serverId, farmId, name, role, isActive, lastSync, pendingSync',
       collections: '++id, serverId, workerId, lotId, collectionDate, lastSync, pendingSync',
@@ -633,6 +652,7 @@ export class OfflineDatabase extends Dexie {
       // Trazabilidad Tables
       microlots: '++id, serverId, code, lotId, lastSync, pendingSync',
       traceabilityEvents: '++id, serverId, microlotId, stage, timestamp, lastSync, pendingSync',
+      certificationRecords: '++id, serverId, microlotId, status, lastSync, pendingSync',
       // Workers Tables
       workers: '++id, serverId, farmId, name, role, isActive, lastSync, pendingSync',
       collections: '++id, serverId, workerId, lotId, collectionDate, lastSync, pendingSync',
