@@ -170,21 +170,25 @@ router.post('/register', asyncHandler(async (req, res) => {
         );
       }
 
-      // Agregar variedades de café
-      for (const variety of coffeeVarieties) {
-        await connection.execute(
+      // Agregar variedades de café en lote
+      if (coffeeVarieties.length > 0) {
+        const now = new Date();
+        const varietyValues = coffeeVarieties.map(variety => [farmId, variety, now]);
+        await connection.query(
           `INSERT INTO farm_coffee_varieties (farm_id, variety_name, created_at) 
-           VALUES (?, ?, NOW())`,
-          [farmId, variety]
+           VALUES ?`,
+          [varietyValues]
         );
       }
 
-      // Agregar certificaciones si existen
-      for (const certification of certifications) {
-        await connection.execute(
+      // Agregar certificaciones si existen en lote
+      if (certifications.length > 0) {
+        const now = new Date();
+        const certificationValues = certifications.map(certification => [farmId, certification, 'active', now]);
+        await connection.query(
           `INSERT INTO farm_certifications (farm_id, certification_name, status, created_at) 
-           VALUES (?, ?, 'active', NOW())`,
-          [farmId, certification]
+           VALUES ?`,
+          [certificationValues]
         );
       }
 
