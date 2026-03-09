@@ -42,7 +42,8 @@
         "coolify:build": "node build-coolify.cjs",
         "coolify:start": "cd api && node server.cjs",
         "build:frontend": "vite build",
-        "build:complete": "npm ci && npm run build:frontend && cd api && npm ci --production"
+        "build:complete": "npm ci && npm run build:frontend && cd api && npm ci --production",
+        "test": "vitest"
     },
     "dependencies": {
         "@google/maps": "^1.1.3",
@@ -113,6 +114,7 @@
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.19",
         "globals": "^16.0.0",
+        "happy-dom": "^20.8.3",
         "nodemon": "^3.1.10",
         "postcss": "^8.5.3",
         "prisma": "^5.7.1",
@@ -125,6 +127,7 @@
         "vite": "^5.4.10",
         "vite-plugin-pwa": "^0.21.1",
         "vite-tsconfig-paths": "^5.1.4",
+        "vitest": "^4.0.18",
         "workbox-window": "^7.0.0"
     }
 }
