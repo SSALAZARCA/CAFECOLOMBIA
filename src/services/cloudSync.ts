@@ -453,7 +453,7 @@ export class CloudSyncService {
         }
       }
       const pendingWorkers = await offlineDB.workers.filter(w => !!w.pendingSync && w.action === 'create').toArray();
-      for (const worker of pendingWorkers) {
+      const promises = pendingWorkers.map(async (worker) => {
         try {
           const res = await fetch(`${this.config.apiBaseUrl}/workers`, {
             method: 'POST',
@@ -463,11 +463,22 @@ export class CloudSyncService {
           if (res.ok) {
             const data = await res.json();
             if (worker.id) await offlineDB.workers.update(worker.id, { serverId: data.data.id, pendingSync: false, lastSync: new Date(), action: undefined });
-            result.uploaded++;
-          } else { if (!import.meta.env.DEV) result.failed++; }
+            return { success: true };
+          } else {
+            return { success: false, error: res.statusText };
+          }
         } catch (e) {
+          return { success: false, error: String(e) };
+        }
+      });
+
+      const results = await Promise.all(promises);
+      for (const res of results) {
+        if (res.success) {
+          result.uploaded++;
+        } else {
           result.failed++;
-          if (!import.meta.env.DEV) result.errors.push(`Error: ${e}`);
+          if (!import.meta.env.DEV && res.error) result.errors.push(`Error: ${res.error}`);
         }
       }
     } catch (error) { if (!import.meta.env.DEV) result.errors.push(`Error syncing workers: ${error}`); }
