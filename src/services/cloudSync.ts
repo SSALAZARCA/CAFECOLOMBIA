@@ -255,20 +255,22 @@ export class CloudSyncService {
       // Use 'pendiente'
       const pendingAnalysis = await offlineDB.getAIAnalysisByStatus('pendiente');
 
-      for (const analysis of pendingAnalysis.slice(0, this.config.batchSize)) {
-        try {
-          const success = await this.uploadAnalysisRequest(analysis);
-          if (success) {
-            result.uploaded++;
-          } else if (analysis.id) {
+      await Promise.all(
+        pendingAnalysis.slice(0, this.config.batchSize).map(async (analysis) => {
+          try {
+            const success = await this.uploadAnalysisRequest(analysis);
+            if (success) {
+              result.uploaded++;
+            } else if (analysis.id) {
+              result.failed++;
+              await this.handleRetry(analysis.id.toString());
+            }
+          } catch (error) {
             result.failed++;
-            await this.handleRetry(analysis.id.toString());
+            result.errors.push(`Failed to upload analysis ${analysis.id}: ${error}`);
           }
-        } catch (error) {
-          result.failed++;
-          result.errors.push(`Failed to upload analysis ${analysis.id}: ${error}`);
-        }
-      }
+        })
+      );
 
       const downloadResult = await this.downloadAnalysisResults();
       result.downloaded += downloadResult.downloaded;
