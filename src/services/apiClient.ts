@@ -346,8 +346,106 @@ export class ApiClient {
       });
     }
 
-    // TODO: Implement progress tracking with XMLHttpRequest if needed
-    return this.post<T>(endpoint, formData);
+    if (!onProgress) {
+      return this.post<T>(endpoint, formData);
+    }
+
+    return new Promise((resolve) => {
+      const isDev = import.meta.env.MODE === 'development' || import.meta.env.DEV;
+      const url = isDev ? endpoint : `${this.baseUrl}${endpoint}`;
+
+      const xhr = new XMLHttpRequest();
+
+      // Setup progress tracking
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable && onProgress) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          onProgress(progress);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        try {
+          let responseData;
+          try {
+            responseData = JSON.parse(xhr.responseText);
+          } catch (e) {
+            responseData = { message: xhr.responseText };
+          }
+
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve({
+              success: true,
+              data: responseData.data || responseData,
+              message: responseData.message,
+              timestamp: new Date().toISOString(),
+              requestId: xhr.getResponseHeader('X-Request-ID') || undefined
+            });
+          } else {
+            resolve({
+              success: false,
+              error: responseData.message || `HTTP ${xhr.status}: ${xhr.statusText}`,
+              timestamp: new Date().toISOString()
+            });
+          }
+        } catch (error) {
+          resolve({
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error occurred',
+            timestamp: new Date().toISOString()
+          });
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        const isBackendUrl = url.includes('/api/');
+        if (isDev && isBackendUrl) {
+          console.error('🔥 Backend connection error details:', {
+            url,
+            status: xhr.status,
+            statusText: xhr.statusText
+          });
+          resolve({
+            success: false,
+            error: 'offline_mode',
+            message: 'Backend service unavailable (XMLHttpRequest Error) - running in offline mode',
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          resolve({
+            success: false,
+            error: 'Network error occurred during upload',
+            timestamp: new Date().toISOString()
+          });
+        }
+      });
+
+      xhr.addEventListener('timeout', () => {
+        resolve({
+          success: false,
+          error: 'Upload timeout',
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      xhr.open('POST', url, true);
+      xhr.timeout = this.timeout;
+
+      // Always get fresh token from localStorage
+      const token = localStorage.getItem('token');
+      const authHeader = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      const requestHeaders = { ...this.defaultHeaders, ...authHeader };
+
+      // Set headers, but exclude Content-Type because browser sets it automatically with the boundary for FormData
+      Object.entries(requestHeaders).forEach(([key, value]) => {
+        if (key.toLowerCase() !== 'content-type') {
+          xhr.setRequestHeader(key, value as string);
+        }
+      });
+
+      xhr.send(formData);
+    });
   }
 
   // Health check
