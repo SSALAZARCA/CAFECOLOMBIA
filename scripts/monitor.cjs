@@ -8,9 +8,9 @@
 const mysql = require('mysql2/promise');
 const fs = require('fs').promises;
 const path = require('path');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const { promisify } = require('util');
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 require('dotenv').config();
 
 // Configuración de colores para consola
@@ -150,7 +150,7 @@ async function checkSystem() {
         
         // Verificar uso de CPU
         try {
-            const { stdout: cpuInfo } = await execAsync('wmic cpu get loadpercentage /value');
+            const { stdout: cpuInfo } = await execFileAsync('wmic', ['cpu', 'get', 'loadpercentage', '/value']);
             const cpuMatch = cpuInfo.match(/LoadPercentage=(\d+)/);
             results.cpu = cpuMatch ? parseInt(cpuMatch[1]) : 0;
         } catch {
@@ -159,7 +159,7 @@ async function checkSystem() {
         
         // Verificar uso de memoria
         try {
-            const { stdout: memInfo } = await execAsync('wmic OS get TotalVisibleMemorySize,FreePhysicalMemory /value');
+            const { stdout: memInfo } = await execFileAsync('wmic', ['OS', 'get', 'TotalVisibleMemorySize,FreePhysicalMemory', '/value']);
             const totalMatch = memInfo.match(/TotalVisibleMemorySize=(\d+)/);
             const freeMatch = memInfo.match(/FreePhysicalMemory=(\d+)/);
             
@@ -177,7 +177,7 @@ async function checkSystem() {
         
         // Verificar espacio en disco
         try {
-            const { stdout: diskInfo } = await execAsync('wmic logicaldisk get size,freespace,caption');
+            const { stdout: diskInfo } = await execFileAsync('wmic', ['logicaldisk', 'get', 'size,freespace,caption']);
             const lines = diskInfo.split('\n').filter(line => line.includes('C:'));
             if (lines.length > 0) {
                 const parts = lines[0].trim().split(/\s+/);
@@ -198,7 +198,7 @@ async function checkSystem() {
         
         // Verificar procesos de Node.js
         try {
-            const { stdout: processInfo } = await execAsync('tasklist /fi "imagename eq node.exe" /fo csv');
+            const { stdout: processInfo } = await execFileAsync('tasklist', ['/fi', 'imagename eq node.exe', '/fo', 'csv']);
             const lines = processInfo.split('\n').filter(line => line.includes('node.exe'));
             results.nodeProcesses = lines.length;
         } catch {
@@ -222,7 +222,7 @@ async function checkSystem() {
 // Función para verificar PM2 (si está disponible)
 async function checkPM2() {
     try {
-        const { stdout } = await execAsync('pm2 jlist');
+        const { stdout } = await execFileAsync('pm2', ['jlist']);
         const processes = JSON.parse(stdout);
         
         const cafeProcess = processes.find(p => p.name === 'cafe-colombia-api');
