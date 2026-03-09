@@ -4,7 +4,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const notificationController = require('../controllers/notificationController.cjs');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'cafe_colombia_jwt_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Middleware de autenticación
 const verifyToken = (req, res, next) => {
@@ -12,6 +12,7 @@ const verifyToken = (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) return res.status(401).json({ success: false, message: 'No autenticado' });
+    if (!JWT_SECRET) return res.status(500).json({ success: false, message: 'Server configuration error: JWT_SECRET missing' });
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
