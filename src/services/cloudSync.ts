@@ -255,20 +255,22 @@ export class CloudSyncService {
       // Use 'pendiente'
       const pendingAnalysis = await offlineDB.getAIAnalysisByStatus('pendiente');
 
-      for (const analysis of pendingAnalysis.slice(0, this.config.batchSize)) {
-        try {
-          const success = await this.uploadAnalysisRequest(analysis);
-          if (success) {
-            result.uploaded++;
-          } else if (analysis.id) {
+      await Promise.all(
+        pendingAnalysis.slice(0, this.config.batchSize).map(async (analysis) => {
+          try {
+            const success = await this.uploadAnalysisRequest(analysis);
+            if (success) {
+              result.uploaded++;
+            } else if (analysis.id) {
+              result.failed++;
+              await this.handleRetry(analysis.id.toString());
+            }
+          } catch (error) {
             result.failed++;
-            await this.handleRetry(analysis.id.toString());
+            result.errors.push(`Failed to upload analysis ${analysis.id}: ${error}`);
           }
-        } catch (error) {
-          result.failed++;
-          result.errors.push(`Failed to upload analysis ${analysis.id}: ${error}`);
-        }
-      }
+        })
+      );
 
       const downloadResult = await this.downloadAnalysisResults();
       result.downloaded += downloadResult.downloaded;
@@ -489,29 +491,49 @@ export class CloudSyncService {
     const result: CloudSyncResult = { success: true, uploaded: 0, downloaded: 0, failed: 0, errors: [] };
     try {
       const pendingCollections = await offlineDB.collections.filter(c => !!c.pendingSync).toArray();
-      for (const collection of pendingCollections) {
-        // ... (same logic as before) ...
-        const worker = await offlineDB.workers.get(collection.workerId);
-        const lot = await offlineDB.lots.get(collection.lotId);
-        if (!worker?.serverId || !lot?.serverId) continue;
 
-        const res = await fetch(`${this.config.apiBaseUrl}/workers/collections`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.config.apiKey}` },
-          body: JSON.stringify({
-            workerId: worker.serverId,
-            lotId: lot.serverId,
-            quantityKg: collection.quantityKg,
-            method: collection.method,
-            notes: collection.notes,
-            collectionDate: collection.collectionDate
-          })
+      // Process in chunks defined by batchSize
+      for (let i = 0; i < pendingCollections.length; i += this.config.batchSize) {
+        const batch = pendingCollections.slice(i, i + this.config.batchSize);
+
+        const batchPromises = batch.map(async (collection) => {
+          const worker = await offlineDB.workers.get(collection.workerId);
+          const lot = await offlineDB.lots.get(collection.lotId);
+          if (!worker?.serverId || !lot?.serverId) return { success: false, reason: 'missing_deps' };
+
+          try {
+            const res = await fetch(`${this.config.apiBaseUrl}/workers/collections`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.config.apiKey}` },
+              body: JSON.stringify({
+                workerId: worker.serverId,
+                lotId: lot.serverId,
+                quantityKg: collection.quantityKg,
+                method: collection.method,
+                notes: collection.notes,
+                collectionDate: collection.collectionDate
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (collection.id) await offlineDB.collections.update(collection.id, { serverId: data.data.id, pendingSync: false, lastSync: new Date() });
+              return { success: true };
+            } else {
+              return { success: false, reason: 'api_error' };
+            }
+          } catch (e) {
+            return { success: false, reason: 'network_error', error: e };
+          }
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (collection.id) await offlineDB.collections.update(collection.id, { serverId: data.data.id, pendingSync: false, lastSync: new Date() });
-          result.uploaded++;
-        } else result.failed++;
+
+        const batchResults = await Promise.all(batchPromises);
+        for (const res of batchResults) {
+          if (res.success) {
+            result.uploaded++;
+          } else if (res.reason === 'api_error' || res.reason === 'network_error') {
+            result.failed++;
+          }
+        }
       }
     } catch (error) { if (!import.meta.env.DEV) result.errors.push(String(error)); }
     return result;
