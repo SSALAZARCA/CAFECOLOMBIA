@@ -12,7 +12,7 @@ import {
   Thermometer,
   Loader2
 } from 'lucide-react';
-// import { offlineDB } from '@/utils/offlineDB';
+import { offlineDB, ensureOfflineDBReady } from '@/utils/offlineDB';
 import { toast } from 'sonner';
 
 interface DashboardStats {
@@ -50,38 +50,16 @@ export default function Home() {
   });
 
   useEffect(() => {
-    // VERSIÓN MÍNIMA - Solo datos estáticos para probar
-    console.log('✅ Cargando datos estáticos del dashboard...');
-    
-    setTimeout(() => {
-      setDashboardData({
-        stats: {
-          totalLots: 4,
-          activeLots: 3,
-          monthlyProduction: 0.65,
-          totalInventory: 4,
-          pendingTasks: 2,
-          completedTasks: 1
-        },
-        recentTasks: [],
-        alerts: [],
-        recentHarvests: [],
-        loading: false
-      });
-    }, 500);
+    loadDashboardData();
   }, []);
 
-  // TODO: Restaurar función de carga de datos después de que funcione la versión mínima
-  /*
   const loadDashboardData = async () => {
     try {
       console.log('🔄 Iniciando carga de datos del dashboard...');
       setDashboardData(prev => ({ ...prev, loading: true }));
 
-      // Verificar que la base de datos esté disponible
-      if (!offlineDB) {
-        throw new Error('Base de datos offline no disponible');
-      }
+      // Asegurar que la base de datos esté lista
+      await ensureOfflineDBReady();
 
       console.log('📊 Cargando datos de las tablas...');
       
@@ -193,16 +171,11 @@ export default function Home() {
 
     } catch (error) {
       console.error('Error cargando datos del dashboard:', error);
-      // No lanzar el error, solo registrarlo y continuar
       setDashboardData(prev => ({ ...prev, loading: false }));
-      
-      // Lanzar el error para que sea capturado por loadDashboardDataSafely
-      throw error;
+      toast.error('Error al cargar datos del dashboard');
     }
   };
-  */
 
-  // VERSIÓN MÍNIMA - Funciones simplificadas sin base de datos
   const handleRegistrarCosecha = () => {
     toast.success('Cosecha registrada exitosamente (modo demo)');
     console.log('✅ Cosecha registrada en modo demo');
