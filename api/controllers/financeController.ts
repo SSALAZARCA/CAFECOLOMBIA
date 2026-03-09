@@ -5,7 +5,7 @@ import { ApplicationError, NotFoundError, ValidationError } from '../middleware/
 import { asyncHandler } from '../middleware/errorHandler';
 
 // Esquemas de validación
-const createTransactionSchema = z.object({
+export const createTransactionSchema = z.object({
   farmId: z.number().int().positive(),
   type: z.enum(['INCOME', 'EXPENSE']),
   category: z.string().min(1, 'La categoría es requerida'),
