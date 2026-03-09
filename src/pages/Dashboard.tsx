@@ -95,11 +95,42 @@ const Dashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       // Use standardized apiClient
-      const response = await apiClient.get('/dashboard');
+      const response = await apiClient.get('/api/dashboard');
 
       if (response && (response.success || response.data)) {
         // Adapt response structure
-        const data = response.data || response;
+        let data: any = (response as any).data || response;
+        if (data.data) data = data.data; // Handle double nesting
+
+        // Provide defaults if the backend doesn't send everything
+        const safeData: DashboardData = {
+          user: {
+            name: data.user?.name || data.grower?.full_name || "Usuario",
+            email: data.user?.email || data.grower?.email || "",
+            farmName: data.user?.farmName || data.farm?.name || "Finca No Registrada"
+          },
+          farm: {
+            totalArea: data.farm?.totalArea || data.farm?.area || 0,
+            coffeeArea: data.farm?.coffeeArea || data.farm?.area || 0,
+            location: data.farm?.location || "No registrada",
+            altitude: data.farm?.altitude || 0,
+            address: data.farm?.address || ""
+          },
+          production: {
+            currentSeason: data.production?.currentSeason || 0,
+            lastSeason: data.production?.lastSeason || 0,
+            trend: data.production?.trend || "stable"
+          },
+          weather: {
+            temperature: data.weather?.temperature || 24,
+            humidity: data.weather?.humidity || 75,
+            rainfall: data.weather?.rainfall || 0
+          },
+          alerts: Array.isArray(data.alerts) ? data.alerts : [],
+          tasks: Array.isArray(data.tasks) ? data.tasks : []
+        };
+
+        setDashboardData(safeData);
         setDashboardData(data);
       } else {
         console.error('API Error: Response invalid', response);
@@ -129,7 +160,7 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  if (!dashboardData || !dashboardData.user) {
+  if (!dashboardData) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-[calc(100vh-4rem)]">

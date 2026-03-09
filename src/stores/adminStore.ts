@@ -550,7 +550,7 @@ export const useAdminStore = create<AdminStore>()(
           const params = dateRange ?
             `?from=${dateRange.from}&to=${dateRange.to}` : '';
 
-          const data = await adminHttpClient.get(`/admin/dashboard/stats${params}`);
+          const data = await adminHttpClient.get(`/admin/dashboard/metrics${params}`);
 
           set({
             dashboardMetrics: data,

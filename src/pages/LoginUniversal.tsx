@@ -174,9 +174,11 @@ const LoginUniversal: React.FC = () => {
             return;
           }
 
-          // Si el rol NO es admin, cerrar sesión de adminStore y continuar con login general
+          // Si el rol NO es admin, limpiar sesión de adminStore silenciosamente y continuar con login general
           try {
-            await adminState.logout?.();
+            // we don't call logout as it triggers a toast. We can just clear it.
+            // Or maybe it's fine, let's just make the toast only show if there was actually a session?
+            // Let's comment this out since general auth manages its own state
           } catch { }
 
           await tryGeneralLogin(data);
