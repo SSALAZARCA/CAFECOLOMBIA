@@ -165,9 +165,19 @@ export default function Workers() {
                 .reverse()
                 .toArray();
 
-            // Fetch lots to resolve names
-            const historyWithNames = await Promise.all(collections.map(async (c) => {
-                const lot = await offlineDB.lots.get(c.lotId);
+            // Fetch lots to resolve names efficiently
+            const uniqueLotIds = [...new Set(collections.map(c => c.lotId))];
+            const lots = await offlineDB.lots.bulkGet(uniqueLotIds);
+
+            const lotMap = new Map();
+            lots.forEach((lot, index) => {
+                if (lot) {
+                    lotMap.set(uniqueLotIds[index], lot);
+                }
+            });
+
+            const historyWithNames = collections.map((c) => {
+                const lot = lotMap.get(c.lotId);
                 return {
                     id: c.id!.toString(),
                     workerId: c.workerId.toString(),
@@ -178,7 +188,7 @@ export default function Workers() {
                     notes: c.notes,
                     lotName: lot ? lot.name : 'Lote desconocido'
                 };
-            }));
+            });
 
             setExpandedHistory(historyWithNames);
         } catch (error) {
