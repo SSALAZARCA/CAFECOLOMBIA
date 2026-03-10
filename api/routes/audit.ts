@@ -25,48 +25,26 @@ router.get('/logs', requirePermission('audit.view'), asyncHandler(async (req: Au
 
   const offset = (Number(page) - 1) * Number(limit);
   
-  // Construir condiciones WHERE
-  let whereConditions = ['1=1'];
-  const queryParams: any[] = [];
+  // Construir condiciones WHERE (Estático)
+  const searchParam = search ? `%${search}%` : '';
+  const hasSearch = search ? 1 : 0;
+  const queryParams = [
+    hasSearch, searchParam, searchParam, searchParam, searchParam, searchParam,
+    action === 'all' ? 1 : 0, action,
+    resourceType === 'all' ? 1 : 0, resourceType,
+    !userId ? 1 : 0, userId,
+    !dateFrom ? 1 : 0, dateFrom,
+    !dateTo ? 1 : 0, dateTo
+  ];
 
-  if (search) {
-    whereConditions.push(`(
-      au.first_name LIKE ? OR 
-      au.last_name LIKE ? OR 
-      au.email LIKE ? OR
-      al.details LIKE ? OR
-      al.ip_address LIKE ?
-    )`);
-    const searchTerm = `%${search}%`;
-    queryParams.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
-  }
-
-  if (action !== 'all') {
-    whereConditions.push('al.action = ?');
-    queryParams.push(action);
-  }
-
-  if (resourceType !== 'all') {
-    whereConditions.push('al.resource_type = ?');
-    queryParams.push(resourceType);
-  }
-
-  if (userId) {
-    whereConditions.push('al.user_id = ?');
-    queryParams.push(userId);
-  }
-
-  if (dateFrom) {
-    whereConditions.push('DATE(al.created_at) >= ?');
-    queryParams.push(dateFrom);
-  }
-
-  if (dateTo) {
-    whereConditions.push('DATE(al.created_at) <= ?');
-    queryParams.push(dateTo);
-  }
-
-  const whereClause = whereConditions.join(' AND ');
+  const staticWhere = `
+    (? = 0 OR (au.first_name LIKE ? OR au.last_name LIKE ? OR au.email LIKE ? OR al.details LIKE ? OR al.ip_address LIKE ?))
+    AND (? = 1 OR al.action = ?)
+    AND (? = 1 OR al.resource_type = ?)
+    AND (? = 1 OR al.user_id = ?)
+    AND (? = 1 OR DATE(al.created_at) >= ?)
+    AND (? = 1 OR DATE(al.created_at) <= ?)
+  `;
   
   // Validar campos de ordenamiento
   const validSortFields = ['created_at', 'action', 'resource_type', 'user_id'];
@@ -93,7 +71,7 @@ router.get('/logs', requirePermission('audit.view'), asyncHandler(async (req: Au
         au.role
       FROM audit_logs al
       LEFT JOIN admin_users au ON al.user_id = au.id
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
       ORDER BY al.${finalSortBy} ${finalSortOrder}
       LIMIT ? OFFSET ?
     `;
@@ -103,7 +81,7 @@ router.get('/logs', requirePermission('audit.view'), asyncHandler(async (req: Au
       SELECT COUNT(al.id) as total
       FROM audit_logs al
       LEFT JOIN admin_users au ON al.user_id = au.id
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
     `;
 
     const [logs, countResult] = await Promise.all([
@@ -181,21 +159,15 @@ router.get('/stats/overview', requirePermission('audit.view'), asyncHandler(asyn
   } = req.query;
 
   try {
-    // Construir condiciones WHERE para filtros de fecha
-    let whereConditions = ['1=1'];
-    const queryParams: any[] = [];
+    const queryParams = [
+      !dateFrom ? 1 : 0, dateFrom,
+      !dateTo ? 1 : 0, dateTo
+    ];
 
-    if (dateFrom) {
-      whereConditions.push('DATE(al.created_at) >= ?');
-      queryParams.push(dateFrom);
-    }
-
-    if (dateTo) {
-      whereConditions.push('DATE(al.created_at) <= ?');
-      queryParams.push(dateTo);
-    }
-
-    const whereClause = whereConditions.join(' AND ');
+    const staticWhere = `
+      (? = 1 OR DATE(al.created_at) >= ?)
+      AND (? = 1 OR DATE(al.created_at) <= ?)
+    `;
 
     // Obtener estadísticas generales
     const [generalStats] = await executeQuery(`
@@ -205,7 +177,7 @@ router.get('/stats/overview', requirePermission('audit.view'), asyncHandler(asyn
         COUNT(DISTINCT al.ip_address) as unique_ips,
         COUNT(DISTINCT DATE(al.created_at)) as active_days
       FROM audit_logs al
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
     `, queryParams);
 
     // Obtener distribución por acción
@@ -215,7 +187,7 @@ router.get('/stats/overview', requirePermission('audit.view'), asyncHandler(asyn
         COUNT(*) as count,
         COUNT(DISTINCT al.user_id) as unique_users
       FROM audit_logs al
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
       GROUP BY al.action
       ORDER BY count DESC
     `, queryParams);
@@ -227,7 +199,7 @@ router.get('/stats/overview', requirePermission('audit.view'), asyncHandler(asyn
         COUNT(*) as count,
         COUNT(DISTINCT al.user_id) as unique_users
       FROM audit_logs al
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
       GROUP BY al.resource_type
       ORDER BY count DESC
     `, queryParams);
@@ -244,7 +216,7 @@ router.get('/stats/overview', requirePermission('audit.view'), asyncHandler(asyn
         MAX(al.created_at) as last_activity
       FROM audit_logs al
       LEFT JOIN admin_users au ON al.user_id = au.id
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
       GROUP BY al.user_id, au.first_name, au.last_name, au.email, au.role
       ORDER BY total_actions DESC
       LIMIT 10
@@ -259,10 +231,14 @@ router.get('/stats/overview', requirePermission('audit.view'), asyncHandler(asyn
         COUNT(DISTINCT al.action) as unique_actions
       FROM audit_logs al
       WHERE al.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        ${dateFrom || dateTo ? `AND ${whereClause}` : ''}
+        AND (? = 1 OR ((? = 1 OR DATE(al.created_at) >= ?) AND (? = 1 OR DATE(al.created_at) <= ?)))
       GROUP BY DATE(al.created_at)
       ORDER BY date ASC
-    `, dateFrom || dateTo ? queryParams : []);
+    `, [
+      !dateFrom && !dateTo ? 1 : 0,
+      !dateFrom ? 1 : 0, dateFrom,
+      !dateTo ? 1 : 0, dateTo
+    ]);
 
     // Obtener IPs más activas
     const [topIPs] = await executeQuery(`
@@ -273,7 +249,7 @@ router.get('/stats/overview', requirePermission('audit.view'), asyncHandler(asyn
         MIN(al.created_at) as first_seen,
         MAX(al.created_at) as last_seen
       FROM audit_logs al
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
       GROUP BY al.ip_address
       ORDER BY total_actions DESC
       LIMIT 10
@@ -309,31 +285,20 @@ router.get('/security-events', requirePermission('security.view'), asyncHandler(
 
   const offset = (Number(page) - 1) * Number(limit);
   
-  // Construir condiciones WHERE
-  let whereConditions = ['1=1'];
-  const queryParams: any[] = [];
+  // Construir condiciones WHERE (Estático)
+  const queryParams = [
+    eventType === 'all' ? 1 : 0, eventType,
+    severity === 'all' ? 1 : 0, severity,
+    !dateFrom ? 1 : 0, dateFrom,
+    !dateTo ? 1 : 0, dateTo
+  ];
 
-  if (eventType !== 'all') {
-    whereConditions.push('se.event_type = ?');
-    queryParams.push(eventType);
-  }
-
-  if (severity !== 'all') {
-    whereConditions.push('se.severity = ?');
-    queryParams.push(severity);
-  }
-
-  if (dateFrom) {
-    whereConditions.push('DATE(se.created_at) >= ?');
-    queryParams.push(dateFrom);
-  }
-
-  if (dateTo) {
-    whereConditions.push('DATE(se.created_at) <= ?');
-    queryParams.push(dateTo);
-  }
-
-  const whereClause = whereConditions.join(' AND ');
+  const staticWhere = `
+    (? = 1 OR se.event_type = ?)
+    AND (? = 1 OR se.severity = ?)
+    AND (? = 1 OR DATE(se.created_at) >= ?)
+    AND (? = 1 OR DATE(se.created_at) <= ?)
+  `;
   
   // Validar campos de ordenamiento
   const validSortFields = ['created_at', 'event_type', 'severity'];
@@ -359,7 +324,7 @@ router.get('/security-events', requirePermission('security.view'), asyncHandler(
         au.email
       FROM security_events se
       LEFT JOIN admin_users au ON se.user_id = au.id
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
       ORDER BY se.${finalSortBy} ${finalSortOrder}
       LIMIT ? OFFSET ?
     `;
@@ -368,7 +333,7 @@ router.get('/security-events', requirePermission('security.view'), asyncHandler(
     const countQuery = `
       SELECT COUNT(se.id) as total
       FROM security_events se
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
     `;
 
     const [events, countResult] = await Promise.all([
@@ -467,21 +432,15 @@ router.get('/security-events/stats', requirePermission('security.view'), asyncHa
   } = req.query;
 
   try {
-    // Construir condiciones WHERE para filtros de fecha
-    let whereConditions = ['1=1'];
-    const queryParams: any[] = [];
+    const queryParams = [
+      !dateFrom ? 1 : 0, dateFrom,
+      !dateTo ? 1 : 0, dateTo
+    ];
 
-    if (dateFrom) {
-      whereConditions.push('DATE(se.created_at) >= ?');
-      queryParams.push(dateFrom);
-    }
-
-    if (dateTo) {
-      whereConditions.push('DATE(se.created_at) <= ?');
-      queryParams.push(dateTo);
-    }
-
-    const whereClause = whereConditions.join(' AND ');
+    const staticWhere = `
+      (? = 1 OR DATE(se.created_at) >= ?)
+      AND (? = 1 OR DATE(se.created_at) <= ?)
+    `;
 
     // Obtener estadísticas generales
     const [generalStats] = await executeQuery(`
@@ -493,7 +452,7 @@ router.get('/security-events/stats', requirePermission('security.view'), asyncHa
         COUNT(CASE WHEN severity = 'low' THEN 1 END) as low_events,
         COUNT(DISTINCT ip_address) as unique_ips
       FROM security_events se
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
     `, queryParams);
 
     // Obtener distribución por tipo de evento
@@ -503,7 +462,7 @@ router.get('/security-events/stats', requirePermission('security.view'), asyncHa
         COUNT(*) as count,
         COUNT(CASE WHEN severity IN ('critical', 'high') THEN 1 END) as high_severity_count
       FROM security_events se
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
       GROUP BY se.event_type
       ORDER BY count DESC
     `, queryParams);
@@ -517,10 +476,14 @@ router.get('/security-events/stats', requirePermission('security.view'), asyncHa
         COUNT(CASE WHEN severity = 'high' THEN 1 END) as high_events
       FROM security_events se
       WHERE se.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        ${dateFrom || dateTo ? `AND ${whereClause}` : ''}
+        AND (? = 1 OR ((? = 1 OR DATE(se.created_at) >= ?) AND (? = 1 OR DATE(se.created_at) <= ?)))
       GROUP BY DATE(se.created_at)
       ORDER BY date ASC
-    `, dateFrom || dateTo ? queryParams : []);
+    `, [
+      !dateFrom && !dateTo ? 1 : 0,
+      !dateFrom ? 1 : 0, dateFrom,
+      !dateTo ? 1 : 0, dateTo
+    ]);
 
     // Obtener IPs más problemáticas
     const [problematicIPs] = await executeQuery(`
@@ -530,7 +493,7 @@ router.get('/security-events/stats', requirePermission('security.view'), asyncHa
         COUNT(CASE WHEN severity IN ('critical', 'high') THEN 1 END) as high_severity_events,
         MAX(se.created_at) as last_event
       FROM security_events se
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
       GROUP BY se.ip_address
       ORDER BY high_severity_events DESC, total_events DESC
       LIMIT 10
@@ -560,31 +523,19 @@ router.get('/export/logs', requirePermission('audit.export'), asyncHandler(async
   } = req.query;
 
   try {
-    // Construir condiciones WHERE
-    let whereConditions = ['1=1'];
-    const queryParams: any[] = [];
+    const queryParams = [
+      action === 'all' ? 1 : 0, action,
+      resourceType === 'all' ? 1 : 0, resourceType,
+      !dateFrom ? 1 : 0, dateFrom,
+      !dateTo ? 1 : 0, dateTo
+    ];
 
-    if (action !== 'all') {
-      whereConditions.push('al.action = ?');
-      queryParams.push(action);
-    }
-
-    if (resourceType !== 'all') {
-      whereConditions.push('al.resource_type = ?');
-      queryParams.push(resourceType);
-    }
-
-    if (dateFrom) {
-      whereConditions.push('DATE(al.created_at) >= ?');
-      queryParams.push(dateFrom);
-    }
-
-    if (dateTo) {
-      whereConditions.push('DATE(al.created_at) <= ?');
-      queryParams.push(dateTo);
-    }
-
-    const whereClause = whereConditions.join(' AND ');
+    const staticWhere = `
+      (? = 1 OR al.action = ?)
+      AND (? = 1 OR al.resource_type = ?)
+      AND (? = 1 OR DATE(al.created_at) >= ?)
+      AND (? = 1 OR DATE(al.created_at) <= ?)
+    `;
 
     // Obtener logs para exportación
     const [logs] = await executeQuery(`
@@ -601,7 +552,7 @@ router.get('/export/logs', requirePermission('audit.export'), asyncHandler(async
         al.created_at
       FROM audit_logs al
       LEFT JOIN admin_users au ON al.user_id = au.id
-      WHERE ${whereClause}
+      WHERE ${staticWhere}
       ORDER BY al.created_at DESC
       LIMIT 10000
     `, queryParams);
