@@ -360,6 +360,26 @@ app.get('/api/ping', (req, res) => {
   }
 });
 
+// Debug endpoint to check superadmin status
+app.get('/api/debug-auth', async (req, res) => {
+  try {
+    const admin = await prisma.adminUser.findUnique({
+      where: { email: 'ssalazarc84@gmail.com' }
+    });
+    
+    res.json({
+      exists: !!admin,
+      email: admin ? admin.email : 'not found',
+      is_super_admin: admin ? admin.is_super_admin : false,
+      is_active: admin ? admin.is_active : false,
+      environment: process.env.NODE_ENV,
+      database_type: prisma._activeProvider
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Ruta principal mejorada con logging detallado
 app.get('/api', (req, res) => {
   try {
