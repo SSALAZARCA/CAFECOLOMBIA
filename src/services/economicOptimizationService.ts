@@ -112,7 +112,6 @@ class EconomicOptimizationService {
     targetYield: number
   ): Promise<ResourceAllocation> {
     const yieldIncrease = targetYield - currentYield;
-    // const yieldIncreasePercentage = (yieldIncrease / currentYield) * 100; // Not used currently
 
     // Calcular asignaciones usando métodos auxiliares
     const waterOpt = this.calculateOptimalInvestment(waterCosts.total, targetYield, waterCosts.efficiency, 'water');
