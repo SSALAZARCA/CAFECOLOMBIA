@@ -363,8 +363,21 @@ app.get('/api/ping', (req, res) => {
 // Debug endpoint to check superadmin status
 app.get('/api/debug-auth', async (req, res) => {
   try {
+    const emailToTest = 'ssalazarc84@gmail.com';
+    const passwordToTest = 'ssc841209';
+    
     const admin = await prisma.adminUser.findUnique({
-      where: { email: 'ssalazarc84@gmail.com' }
+      where: { email: emailToTest }
+    });
+    
+    let passwordMatch = false;
+    if (admin) {
+      passwordMatch = await bcrypt.compare(passwordToTest, admin.password_hash);
+    }
+    
+    // Check if there are other users with similar email
+    const allAdmins = await prisma.adminUser.findMany({
+      select: { email: true, is_active: true, is_super_admin: true }
     });
     
     res.json({
@@ -372,11 +385,13 @@ app.get('/api/debug-auth', async (req, res) => {
       email: admin ? admin.email : 'not found',
       is_super_admin: admin ? admin.is_super_admin : false,
       is_active: admin ? admin.is_active : false,
-      environment: process.env.NODE_ENV,
-      database_type: prisma._activeProvider
+      manual_password_check: passwordMatch ? "MATCH" : "FAIL",
+      all_admins_summary: allAdmins,
+      database_url_defined: !!process.env.DATABASE_URL,
+      environment: process.env.NODE_ENV
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 });
 
