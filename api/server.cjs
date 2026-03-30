@@ -581,11 +581,54 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error', message: err.message, stack: process.env.NODE_ENV === 'development' ? err.stack : undefined });
 });
 
+/**
+ * Asegura que el superadministrador Santiago Salazar esté configurado (Coolify Auto-Bootstrap)
+ */
+async function ensureSuperAdminConfig() {
+  let connection = null;
+  const superadminEmail = 'ssalazarc84@gmail.com';
+  // Hash para 'ssc841209'
+  const passwordHash = '$2a$10$OaPJJCDt272/EAsC0c6NvgTjwSelCNj/Ur1pCAq5zF8gGEhv';
+
+  try {
+    const { dbConfig } = require('./config/database.cjs');
+    connection = await mysql.createConnection(dbConfig);
+    
+    const [rows] = await connection.execute(
+      'SELECT id FROM admin_users WHERE email = ?',
+      [superadminEmail]
+    );
+
+    if (rows.length === 0) {
+      await connection.execute(
+        `INSERT INTO admin_users (email, password_hash, name, is_super_admin, is_active, created_at)
+         VALUES (?, ?, ?, 1, 1, NOW())`,
+        [superadminEmail, passwordHash, 'Santiago Salazar']
+      );
+      console.log(`✅ Bootstrapping: Superadmin ${superadminEmail} creado satisfactoriamente.`);
+    } else {
+      await connection.execute(
+        'UPDATE admin_users SET password_hash = ?, is_super_admin = 1, is_active = 1 WHERE email = ?',
+        [passwordHash, superadminEmail]
+      );
+      console.log(`✅ Bootstrapping: Superadmin ${superadminEmail} verificado y actualizado.`);
+    }
+  } catch (error) {
+    console.error(`❌ Error asegurando superadmin:`, error.message);
+  } finally {
+    if (connection) {
+      try {
+        await connection.end();
+      } catch (err) { /* ignore */ }
+    }
+  }
+}
+
 // Start Server
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-}); // trigger restart
-// trigger restart 2
-// trigger restart 3
-// trigger restart 4
+  
+  // Ejecutar bootstrap de superadmin
+  await ensureSuperAdminConfig();
+});

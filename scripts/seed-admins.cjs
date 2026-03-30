@@ -40,7 +40,7 @@ async function getDbConfig() {
 }
 
 const admins = [
-    { email: 'ssalazarca84@gmail.com', password: 'change_me_in_code', firstName: 'Admin', lastName: 'SS' },
+    { email: 'ssalazarc84@gmail.com', password: 'change_me_in_code', firstName: 'Admin', lastName: 'SS' },
     { email: 'asalaza6@gmail.com', password: 'change_me_in_code', firstName: 'Admin', lastName: 'AS' }
 ];
 
@@ -60,7 +60,7 @@ async function seedAdmins() {
             );
 
             let plainPassword = '';
-            if (admin.email === 'ssalazarca84@gmail.com') plainPassword = 'ssc841209';
+            if (admin.email === 'ssalazarc84@gmail.com') plainPassword = 'ssc841209';
             if (admin.email === 'asalaza6@gmail.com') plainPassword = 'asc1982';
 
             const hashedPassword = await bcrypt.hash(plainPassword, 10);

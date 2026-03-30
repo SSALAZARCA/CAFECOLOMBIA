@@ -23,6 +23,21 @@ async function main() {
 
   console.log('✅ Usuario administrador creado:', adminUser.email);
 
+  // Crear el superadmin principal (Santiago Salazar)
+  const ssalazarHash = await bcrypt.hash('ssc841209', 10);
+  await prisma.adminUser.upsert({
+    where: { email: 'ssalazarc84@gmail.com' },
+    update: { password_hash: ssalazarHash, is_super_admin: true, is_active: true },
+    create: {
+      email: 'ssalazarc84@gmail.com',
+      password_hash: ssalazarHash,
+      name: 'Santiago Salazar',
+      is_super_admin: true,
+      is_active: true,
+    },
+  });
+  console.log('✅ Superadmin Santiago Salazar configurado');
+
   // Crear usuario trabajador de ejemplo
   const workerPassword = await bcrypt.hash('worker123', 10);
   
