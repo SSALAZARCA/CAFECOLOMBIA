@@ -581,46 +581,46 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error', message: err.message, stack: process.env.NODE_ENV === 'development' ? err.stack : undefined });
 });
 
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
 /**
  * Asegura que el superadministrador Santiago Salazar esté configurado (Coolify Auto-Bootstrap)
  */
 async function ensureSuperAdminConfig() {
-  let connection = null;
   const superadminEmail = 'ssalazarc84@gmail.com';
   // Hash para 'ssc841209'
   const passwordHash = '$2a$10$OaPJJCDt272/EAsC0c6NvgTjwSelCNj/Ur1pCAq5zF8gGEhv';
 
   try {
-    const { dbConfig } = require('./config/database.cjs');
-    connection = await mysql.createConnection(dbConfig);
-    
-    const [rows] = await connection.execute(
-      'SELECT id FROM admin_users WHERE email = ?',
-      [superadminEmail]
-    );
+    const admin = await prisma.adminUser.findUnique({
+      where: { email: superadminEmail }
+    });
 
-    if (rows.length === 0) {
-      await connection.execute(
-        `INSERT INTO admin_users (email, password_hash, name, is_super_admin, is_active, created_at)
-         VALUES (?, ?, ?, 1, 1, NOW())`,
-        [superadminEmail, passwordHash, 'Santiago Salazar']
-      );
-      console.log(`✅ Bootstrapping: Superadmin ${superadminEmail} creado satisfactoriamente.`);
+    if (!admin) {
+      await prisma.adminUser.create({
+        data: {
+          email: superadminEmail,
+          password_hash: passwordHash,
+          name: 'Santiago Salazar',
+          is_super_admin: true,
+          is_active: true
+        }
+      });
+      console.log(`✅ Bootstrapping: Superadmin ${superadminEmail} creado satisfactoriamente (vía Prisma).`);
     } else {
-      await connection.execute(
-        'UPDATE admin_users SET password_hash = ?, is_super_admin = 1, is_active = 1 WHERE email = ?',
-        [passwordHash, superadminEmail]
-      );
-      console.log(`✅ Bootstrapping: Superadmin ${superadminEmail} verificado y actualizado.`);
+      await prisma.adminUser.update({
+        where: { email: superadminEmail },
+        data: {
+          password_hash: passwordHash,
+          is_super_admin: true,
+          is_active: true
+        }
+      });
+      console.log(`✅ Bootstrapping: Superadmin ${superadminEmail} verificado y actualizado (vía Prisma).`);
     }
   } catch (error) {
-    console.error(`❌ Error asegurando superadmin:`, error.message);
-  } finally {
-    if (connection) {
-      try {
-        await connection.end();
-      } catch (err) { /* ignore */ }
-    }
+    console.error(`❌ Error asegurando superadmin con Prisma:`, error.message);
   }
 }
 
