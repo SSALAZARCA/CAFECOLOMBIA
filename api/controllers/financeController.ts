@@ -354,16 +354,25 @@ export const getBudgets = asyncHandler(async (req: Request, res: Response) => {
       catLower: e.category.toLowerCase()
     }));
 
+    // Optimization: Group expenses by farmId to reduce nested loop complexity
+    const expensesByFarm = new Map<number, typeof expensesProcessed>();
+    for (const e of expensesProcessed) {
+      const farmExpenses = expensesByFarm.get(e.farmId) || [];
+      farmExpenses.push(e);
+      expensesByFarm.set(e.farmId, farmExpenses);
+    }
+
     budgetsWithSpent = budgets.map((budget) => {
       const categoryLower = budget.category.toLowerCase();
       const startTimestamp = budget.startDate.getTime();
       const endTimestamp = budget.endDate.getTime();
 
       let spentAmount = 0;
-      for (let i = 0; i < expensesProcessed.length; i++) {
-        const e = expensesProcessed[i];
+      const farmExpenses = expensesByFarm.get(budget.farmId) || [];
+
+      for (let i = 0; i < farmExpenses.length; i++) {
+        const e = farmExpenses[i];
         if (
-          e.farmId === budget.farmId &&
           e.time >= startTimestamp &&
           e.time <= endTimestamp &&
           e.catLower.includes(categoryLower)
@@ -682,16 +691,25 @@ export const getFinancialStats = asyncHandler(async (req: Request, res: Response
       catLower: e.category.toLowerCase()
     }));
 
+    // Optimization: Group expenses by farmId to reduce nested loop complexity
+    const expensesByFarm = new Map<number, typeof expensesProcessed>();
+    for (const e of expensesProcessed) {
+      const farmExpenses = expensesByFarm.get(e.farmId) || [];
+      farmExpenses.push(e);
+      expensesByFarm.set(e.farmId, farmExpenses);
+    }
+
     budgetStatusWithSpent = budgetStatus.map((budget) => {
       const categoryLower = budget.category.toLowerCase();
       const startTimestamp = budget.startDate.getTime();
       const endTimestamp = budget.endDate.getTime();
 
       let spentAmount = 0;
-      for (let i = 0; i < expensesProcessed.length; i++) {
-        const e = expensesProcessed[i];
+      const farmExpenses = expensesByFarm.get(budget.farmId) || [];
+
+      for (let i = 0; i < farmExpenses.length; i++) {
+        const e = farmExpenses[i];
         if (
-          e.farmId === budget.farmId &&
           e.time >= startTimestamp &&
           e.time <= endTimestamp &&
           e.catLower.includes(categoryLower)
