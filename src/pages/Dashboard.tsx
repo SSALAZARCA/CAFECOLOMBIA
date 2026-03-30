@@ -76,18 +76,6 @@ const Dashboard: React.FC = () => {
       return;
     }
 
-    try {
-      const userData = JSON.parse(userStr);
-      const role = userData?.tipo_usuario || userData?.role;
-      // Redirección eliminada para permitir ver el dashboard principal
-      // if (coffeeGrowerRoles.includes(role)) {
-      //   navigate('/finca', { replace: true });
-      //   return;
-      // }
-    } catch (e) {
-      console.error('Error checking role:', e);
-    }
-
     // Cargar datos del dashboard
     loadDashboardData();
   }, [navigate]);
