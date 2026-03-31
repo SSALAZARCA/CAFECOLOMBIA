@@ -2,7 +2,61 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../../lib/prisma.cjs');
 
-// GET /api/admin/analytics - Obtener datos de analíticas reales
+// GET /api/admin/analytics/overview - Resumen para métricas del dashboard (Real Data)
+router.get('/overview', async (req, res) => {
+  try {
+    const { period = '30d' } = req.query;
+
+    // 1. Totales Reales desde Prisma
+    const [growersCount, farmsCount, totalPayments, activeSubs] = await Promise.all([
+      prisma.coffeeGrower.count(),
+      prisma.farm.count(), // Usar farm principal
+      prisma.payment.aggregate({ 
+        _sum: { amount: true }, 
+        where: { status: 'completed' } 
+      }),
+      prisma.subscription.count({ where: { status: 'active' } })
+    ]);
+
+    const totalRevenue = totalPayments._sum.amount || 0;
+
+    // 2. Formatear para el frontend DashboardMetrics
+    res.json({
+      success: true,
+      data: {
+        users: {
+          total: growersCount,
+          active: growersCount, // Asumir activos por ahora
+          new_this_month: 0,
+          growth_rate: 0
+        },
+        subscriptions: {
+          total: activeSubs,
+          active: activeSubs,
+          new_this_month: 0,
+          revenue_this_month: totalRevenue // Simplificado
+        },
+        farms: {
+          total: farmsCount,
+          active: farmsCount,
+          total_area: 0, // TODO: agregar campo area en modelo
+          average_area: 0
+        },
+        revenue: {
+          total: totalRevenue,
+          this_month: totalRevenue,
+          last_month: 0,
+          growth_rate: 0
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching analytics overview:', error);
+    res.status(500).json({ success: false, error: 'Error obteniendo resumen de analíticas' });
+  }
+});
+
+// GET /api/admin/analytics - Obtener datos de analíticas reales (Alias/Trends)
 router.get('/', async (req, res) => {
   try {
     const { period = '30d' } = req.query;

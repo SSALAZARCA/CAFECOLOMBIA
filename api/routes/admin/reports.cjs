@@ -91,6 +91,60 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET /api/admin/reports/dashboard - Métricas para el dashboard de administración
+router.get('/dashboard', async (req, res) => {
+    try {
+        const { from, to } = req.query;
+
+        // 1. Totales Reales desde Prisma
+        const [growersCount, farmsCount, totalPayments, activeSubs] = await Promise.all([
+            prisma.coffeeGrower.count(),
+            prisma.farm.count(),
+            prisma.payment.aggregate({ 
+                _sum: { amount: true }, 
+                where: { status: 'completed' } 
+            }),
+            prisma.subscription.count({ where: { status: 'active' } })
+        ]);
+
+        const totalRevenue = totalPayments._sum.amount || 0;
+
+        // 2. Formatear para el frontend DashboardMetrics
+        res.json({
+            success: true,
+            data: {
+                users: {
+                    total: growersCount,
+                    active: growersCount,
+                    new_this_month: 0,
+                    growth_rate: 0
+                },
+                subscriptions: {
+                    total: activeSubs,
+                    active: activeSubs,
+                    new_this_month: 0,
+                    revenue_this_month: totalRevenue
+                },
+                farms: {
+                    total: farmsCount,
+                    active: farmsCount,
+                    total_area: 0,
+                    average_area: 0
+                },
+                revenue: {
+                    total: totalRevenue,
+                    this_month: totalRevenue,
+                    last_month: 0,
+                    growth_rate: 0
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error generando dashboard metrics:', error);
+        res.status(500).json({ success: false, error: 'Error generando métricas del dashboard' });
+    }
+});
+
 // GET /api/admin/reports/export
 router.get('/export', async (req, res) => {
     res.json({ success: true, message: 'Función de exportación pendiente de implementación con datos reales' });

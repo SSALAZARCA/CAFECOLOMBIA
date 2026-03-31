@@ -31,12 +31,12 @@ class BackendConnectionService {
   private healthCheckInterval_ms = 30000; // 30 segundos
   private isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
 
-  // Usar VITE_API_BASE_URL si está definido; en su defecto, rutas relativas para proxy de Vite
-  // En desarrollo usar rutas relativas para aprovechar el proxy de Vite
-  private baseUrl = ((import.meta.env.VITE_API_BASE_URL || '') && !this.isDevelopment) ? import.meta.env.VITE_API_BASE_URL : '';
-  private baseUrls = [this.baseUrl || '/api']; // Compatibility for legacy methods
-  private currentBaseUrl = this.baseUrl || '/api'; // Compatibility for legacy methods
-  private healthEndpoint = '/api/ping';
+  // Usar VITE_API_BASE_URL si está definido; en su defecto, cadena vacía
+  // para permitir rutas relativas limpias.
+  private baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+  private baseUrls = [this.baseUrl]; 
+  private currentBaseUrl = this.baseUrl;
+  private healthEndpoint = '/ping'; // Ya no incluye /api porque /api debe venir en baseUrl
 
   constructor() {
     // En modo desarrollo, reducir la frecuencia de health checks
@@ -269,7 +269,7 @@ class BackendConnectionService {
       }
 
       const data = await response.json();
-      console.log(`✅ Request successful: ${fullUrl}`);
+      console.log(`✅ Request successful: ${this.baseUrl}${endpoint}`);
       return { data, fromCache: false };
 
     } catch (error: any) {

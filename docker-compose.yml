@@ -34,7 +34,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
+        - VITE_API_BASE_URL=/api
         - VITE_PUBLIC_URL=${VITE_PUBLIC_URL:-https://cafecolombia.site}
     container_name: cafe-colombia-app
     restart: always

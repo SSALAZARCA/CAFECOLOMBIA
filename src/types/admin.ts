@@ -280,3 +280,25 @@ export interface ApiError {
   status?: number;
   details?: any;
 }
+
+// =====================================================
+// TIPOS DE REPORTES Y ANALÍTICAS
+// =====================================================
+
+export interface ReportFilter {
+  type?: string;
+  date_from?: string;
+  date_to?: string;
+  format?: 'csv' | 'pdf' | 'excel';
+  [key: string]: any;
+}
+
+export interface ReportData {
+  id: string;
+  type: string;
+  title: string;
+  data: any[];
+  summary?: Record<string, any>;
+  generated_at: string;
+  download_url?: string;
+}

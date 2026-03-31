@@ -26,8 +26,7 @@ import type {
 // =====================================================
 
 // Forzar IPv4 directo y evitar proxy /api
-// Forzar IPv4 directo y evitar proxy /api
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 class AdminApiService {
   private baseURL: string;
