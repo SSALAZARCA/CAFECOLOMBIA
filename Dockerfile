@@ -7,7 +7,9 @@ RUN apk add --no-cache \
   mysql-client \
   curl \
   bash \
-  tzdata
+  tzdata \
+  openssl \
+  libc6-compat
 
 # Configurar zona horaria
 ENV TZ=America/Bogota
