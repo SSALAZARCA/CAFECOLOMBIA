@@ -37,11 +37,20 @@ interface SubscriptionPlan {
     maxUsers: number;
     storageGB: number;
     supportLevel: 'basic' | 'premium' | 'enterprise';
+    apiCalls: number;
+    exportLimit: number;
+    customReports: boolean;
+    prioritySupport: boolean;
   };
   isPopular: boolean;
   isActive: boolean;
   trialDays: number;
   discountPercentage: number;
+  setupFee: number;
+  cancellationPolicy: 'immediate' | 'end_of_period' | 'no_cancellation';
+  autoRenewal: boolean;
+  gracePeriodDays: number;
+  metadata: Record<string, any>;
   subscriberCount: number;
   revenue: number;
   createdAt: string;
@@ -67,29 +76,44 @@ export default function AdminSubscriptionPlans() {
         const data = await response.json();
         if (data.success && data.data) {
           // Mapear datos del backend al formato del frontend
-          const mappedPlans = data.data.map((plan: any) => ({
-            id: plan.id,
-            name: plan.name,
-            description: plan.description,
-            price: plan.price,
-            currency: plan.currency_code || 'COP',
-            billingCycle: plan.billing_cycle,
-            features: Array.isArray(plan.features) ? plan.features : JSON.parse(plan.features || '[]'),
-            limitations: {
-              maxFarms: plan.max_users || 1,
-              maxUsers: plan.max_users || 1,
-              storageGB: plan.max_storage_gb || 1,
-              supportLevel: 'basic'
-            },
-            isPopular: plan.is_featured || false,
-            isActive: plan.is_active || false,
-            trialDays: plan.trial_days || 0,
-            discountPercentage: 0,
-            subscriberCount: plan.active_subscriptions || 0,
-            revenue: 0,
-            createdAt: plan.created_at,
-            updatedAt: plan.updated_at
-          }));
+          const mappedPlans = data.data.map((plan: any) => {
+            const limitations = typeof plan.limitations === 'string' 
+              ? JSON.parse(plan.limitations || '{}')
+              : (plan.limitations || {});
+              
+            return {
+              id: plan.id,
+              name: plan.name || 'Desconocido',
+              description: plan.description || '',
+              price: Number(plan.price || 0),
+              currency: plan.currency || plan.currency_code || 'COP',
+              billingCycle: plan.billing_cycle || 'monthly',
+              features: Array.isArray(plan.features) ? plan.features : JSON.parse(plan.features || '[]'),
+              limitations: {
+                maxFarms: limitations.maxFarms || plan.max_users || 1,
+                maxUsers: limitations.maxUsers || plan.max_users || 1,
+                storageGB: limitations.storageGB || plan.max_storage_gb || 1,
+                supportLevel: limitations.supportLevel || 'basic',
+                apiCalls: limitations.apiCalls || 1000,
+                exportLimit: limitations.exportLimit || 10,
+                customReports: !!limitations.customReports,
+                prioritySupport: !!limitations.prioritySupport
+              },
+              isPopular: !!(plan.is_featured || plan.is_popular),
+              isActive: !!(plan.is_active),
+              trialDays: Number(plan.trial_days || 0),
+              discountPercentage: Number(plan.discount_percentage || 0),
+              setupFee: Number(plan.setup_fee || 0),
+              cancellationPolicy: plan.cancellation_policy || 'end_of_period',
+              autoRenewal: plan.auto_renewal !== false,
+              gracePeriodDays: Number(plan.grace_period_days || 3),
+              metadata: typeof plan.metadata === 'string' ? JSON.parse(plan.metadata || '{}') : (plan.metadata || {}),
+              subscriberCount: Number(plan.active_subscriptions || 0),
+              revenue: Number(plan.total_revenue || 0),
+              createdAt: plan.created_at || new Date().toISOString(),
+              updatedAt: plan.updated_at || new Date().toISOString()
+            };
+          });
           setPlans(mappedPlans);
         } else {
           setPlans([]);
@@ -111,8 +135,8 @@ export default function AdminSubscriptionPlans() {
 
   const filteredPlans = plans.filter(plan => {
     const matchesSearch = 
-      plan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      plan.description.toLowerCase().includes(searchTerm.toLowerCase());
+      (plan.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+      (plan.description || '').toLowerCase().includes((searchTerm || '').toLowerCase());
     
     const matchesBillingCycle = filterBillingCycle === 'all' || plan.billingCycle === filterBillingCycle;
     const matchesStatus = filterStatus === 'all' || 
@@ -326,7 +350,7 @@ export default function AdminSubscriptionPlans() {
                   {plan.currency === 'COP' ? '$' : '$'}{plan.price.toLocaleString()}
                 </span>
                 <span className="text-gray-500 ml-1">
-                  /{getBillingCycleText(plan.billingCycle).toLowerCase()}
+                  /{(getBillingCycleText(plan.billingCycle) || '').toLowerCase()}
                 </span>
               </div>
               {plan.trialDays > 0 && (
@@ -420,11 +444,18 @@ export default function AdminSubscriptionPlans() {
       <SubscriptionPlanCreator
         plan={editingPlan}
         isOpen={showPlanModal}
-        onSave={(savedPlan) => {
+        onSave={(savedPlan: any) => {
           if (editingPlan) {
-            setPlans(plans.map(p => p.id === savedPlan.id ? savedPlan : p));
+            setPlans(plans.map(p => p.id === savedPlan.id ? { ...savedPlan, subscriberCount: p.subscriberCount, revenue: p.revenue, createdAt: p.createdAt, updatedAt: new Date().toISOString() } : p));
           } else {
-            setPlans([...plans, savedPlan]);
+            const newPlan = {
+              ...savedPlan,
+              subscriberCount: 0,
+              revenue: 0,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            setPlans([...plans, newPlan]);
           }
           setShowPlanModal(false);
           setEditingPlan(null);

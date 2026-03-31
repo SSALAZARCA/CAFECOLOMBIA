@@ -116,7 +116,7 @@ export default function AdminCoffeeGrowers() {
       (grower.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (grower.lastName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (grower.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (grower.documentNumber || '').includes(searchTerm);
+      (grower.documentNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'all' || grower.status === filterStatus;
     const matchesDepartment = filterDepartment === 'all' || grower.department === filterDepartment;
@@ -358,19 +358,30 @@ export default function AdminCoffeeGrowers() {
       <div className="bg-white rounded-lg border border-gray-200">
         {selectedGrowers.length > 0 && (
           <BulkActionsBar
-            selectedCount={selectedGrowers.length}
-            onApprove={() => handleBulkAction('approve', selectedGrowers)}
-            onArchive={() => handleBulkAction('archive', selectedGrowers)}
-            onDelete={() => handleBulkAction('delete', selectedGrowers)}
-            onExport={() => handleBulkAction('export', selectedGrowers)}
+            selectedItems={selectedGrowers}
+            onClearSelection={() => setSelectedGrowers([])}
+            entityType="growers"
+            onBulkAction={handleBulkAction}
           />
         )}
 
         <div className="divide-y divide-gray-200">
           {filteredGrowers.map(grower => (
-            <div key={grower.id} className="p-4 flex items-center justify-between">
+            <div key={grower.id} className="p-4 flex items-center justify-between border-b last:border-0 hover:bg-gray-50 transition-colors">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  checked={selectedGrowers.includes(grower.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedGrowers([...selectedGrowers, grower.id]);
+                    } else {
+                      setSelectedGrowers(selectedGrowers.filter(id => id !== grower.id));
+                    }
+                  }}
+                  className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                />
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                   <Coffee className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
@@ -440,6 +451,8 @@ export default function AdminCoffeeGrowers() {
         <ExportImportModal 
           isOpen={exportImportModalOpen}
           mode={exportImportMode}
+          entityType="growers"
+          selectedIds={selectedGrowers}
           onClose={() => setExportImportModalOpen(false)}
         />
       )}

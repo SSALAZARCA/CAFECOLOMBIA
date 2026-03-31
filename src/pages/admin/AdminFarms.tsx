@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import FarmModal from '../../components/admin/FarmModal';
+import ExportImportModal from '../../components/admin/ExportImportModal';
+import BulkActionsBar from '../../components/admin/BulkActionsBar';
 
 interface Farm {
   id: string;
@@ -61,6 +63,8 @@ export default function AdminFarms() {
   const [showFarmModal, setShowFarmModal] = useState(false);
   const [editingFarm, setEditingFarm] = useState<Farm | null>(null);
   const [showMapView, setShowMapView] = useState(false);
+  const [exportImportModalOpen, setExportImportModalOpen] = useState(false);
+  const [exportImportMode, setExportImportMode] = useState<'export' | 'import'>('export');
 
   const fetchFarms = async () => {
     try {
@@ -86,9 +90,9 @@ export default function AdminFarms() {
 
   const filteredFarms = farms.filter(farm => {
     const matchesSearch = 
-      farm.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      farm.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      farm.city.toLowerCase().includes(searchTerm.toLowerCase());
+      (farm.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (farm.ownerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (farm.city || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'all' || farm.status === filterStatus;
     const matchesDepartment = filterDepartment === 'all' || farm.department === filterDepartment;
@@ -120,12 +124,12 @@ export default function AdminFarms() {
   const handleFarmSave = async (farmData: Partial<Farm>) => {
     try {
       const url = editingFarm 
-        ? `/api/admin/farms/${editingFarm.id}`
-        : '/api/admin/farms';
+        ? `/admin/farms/${editingFarm.id}`
+        : '/admin/farms';
       
       const method = editingFarm ? 'PUT' : 'POST';
       
-      const response = await authenticatedFetch(url, {
+      const response = await useAuthenticatedFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json'
@@ -192,6 +196,32 @@ export default function AdminFarms() {
     }
   };
 
+  const handleBulkAction = async (action: string, farmIds: string[]) => {
+    try {
+      switch (action) {
+        case 'approve':
+          await Promise.all(farmIds.map(id => handleStatusChange(id, 'active')));
+          toast.success(`${farmIds.length} fincas aprobadas`);
+          break;
+        case 'archive':
+          await Promise.all(farmIds.map(id => handleStatusChange(id, 'inactive')));
+          toast.success(`${farmIds.length} fincas archivadas`);
+          break;
+        case 'delete':
+          await Promise.all(farmIds.map(id => handleDeleteFarm(id)));
+          toast.success(`${farmIds.length} fincas eliminadas`);
+          break;
+        case 'export':
+          setExportImportMode('export');
+          setExportImportModalOpen(true);
+          break;
+      }
+      setSelectedFarms([]);
+    } catch (error) {
+      toast.error('Error al realizar la acción en lote');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -239,11 +269,23 @@ export default function AdminFarms() {
             <Map className="h-4 w-4" />
             {showMapView ? 'Vista Lista' : 'Vista Mapa'}
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button 
+            onClick={() => {
+              setExportImportMode('export');
+              setExportImportModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
             <Download className="h-4 w-4" />
             Exportar
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button 
+            onClick={() => {
+              setExportImportMode('import');
+              setExportImportModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
             <Upload className="h-4 w-4" />
             Importar
           </button>
@@ -326,7 +368,15 @@ export default function AdminFarms() {
         </div>
       ) : (
         /* Table View */
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-200">
+          {selectedFarms.length > 0 && (
+            <BulkActionsBar
+              selectedItems={selectedFarms}
+              onClearSelection={() => setSelectedFarms([])}
+              entityType="farms"
+              onBulkAction={handleBulkAction}
+            />
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
@@ -506,6 +556,15 @@ export default function AdminFarms() {
         onClose={handleCloseModal}
         farm={editingFarm}
         onSave={handleFarmSave}
+      />
+
+      {/* Export/Import Modal */}
+      <ExportImportModal
+        isOpen={exportImportModalOpen}
+        onClose={() => setExportImportModalOpen(false)}
+        mode={exportImportMode}
+        entityType="farms"
+        selectedIds={selectedFarms}
       />
     </div>
   );

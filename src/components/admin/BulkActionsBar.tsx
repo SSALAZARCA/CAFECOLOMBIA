@@ -26,7 +26,7 @@ interface BulkAction {
 interface BulkActionsBarProps {
   selectedItems: string[];
   onClearSelection: () => void;
-  entityType: 'users' | 'farms' | 'payments' | 'reports';
+  entityType: 'users' | 'farms' | 'payments' | 'reports' | 'growers';
   onBulkAction?: (action: string, selectedIds: string[]) => void;
   className?: string;
 }
@@ -180,6 +180,7 @@ const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
       case 'farms': return getFarmActions();
       case 'payments': return getPaymentActions();
       case 'reports': return getReportActions();
+      case 'growers': return getFarmActions(); // Reutilizar las de fincas que son similares (Aprobar, Archivar, Eliminar)
       default: return [];
     }
   };

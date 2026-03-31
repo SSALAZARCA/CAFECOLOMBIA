@@ -141,7 +141,7 @@ const AdminDashboard: React.FC = () => {
 
       const subscriptionsByPlan = Array.isArray(charts.subscriptions_by_plan)
         ? charts.subscriptions_by_plan.map((item: any, index: number) => ({
-          name: item.plan_name,
+          name: item.plan_name || 'Desconocido',
           value: Number(item.count || 0),
           color: ['#3B82F6', '#10B981', '#F59E0B'][index] || '#6B7280'
         }))
@@ -157,7 +157,7 @@ const AdminDashboard: React.FC = () => {
 
       const paymentMethods = Array.isArray(charts.payment_methods)
         ? charts.payment_methods.map((m: any) => ({
-          method: m.method,
+          method: m.method || 'Otro',
           count: Number(m.count || 0),
           percentage: totalPaymentsCount ? Math.round((Number(m.count || 0) / totalPaymentsCount) * 100) : 0
         }))

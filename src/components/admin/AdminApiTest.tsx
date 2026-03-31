@@ -26,7 +26,7 @@ export const AdminApiTest: React.FC = () => {
   const { isAuthenticated, currentAdmin } = useAdminStore();
 
   const testEndpoints = [
-    { endpoint: '/api/ping', name: 'Health Check', icon: CheckCircle },
+    { endpoint: 'ping', name: 'Health Check', icon: CheckCircle },
     { endpoint: '/api/auth/admin/profile', name: 'Admin Profile', icon: Shield },
     { endpoint: '/api/users', name: 'Users API', icon: Users },
     { endpoint: '/api/reports/dashboard', name: 'Dashboard Metrics', icon: BarChart3 },
@@ -40,7 +40,7 @@ export const AdminApiTest: React.FC = () => {
 
       if (endpoint === '/api/ping') {
         // Usar cliente admin para construir URL absoluta
-        response = await adminHttpClient.get('/api/ping');
+        response = await adminHttpClient.get('ping');
       } else {
         // Test authenticated endpoints
         response = await adminHttpClient.get(endpoint);

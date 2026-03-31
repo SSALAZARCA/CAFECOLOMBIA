@@ -71,10 +71,17 @@ router.get('/charts', async (req, res) => {
         }
 
         res.json({
-            monthly_revenue: [],
-            subscriptions_by_plan: [],
+            monthly_revenue: [
+                { month: months[new Date().getMonth()], revenue: revenueStats._sum.amount || 0, subscriptions: activeSubs }
+            ],
+            subscriptions_by_plan: [
+                { plan_name: 'Básico', count: activeSubs },
+                { plan_name: 'Pro', count: 0 }
+            ],
             user_registrations: user_registrations,
-            payment_methods: []
+            payment_methods: [
+                { method: 'Transferencia', count: 0 }
+            ]
         });
 
     } catch (error) {

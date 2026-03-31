@@ -85,9 +85,9 @@ export default function AdminSubscriptions() {
 
   const filteredSubscriptions = subscriptions.filter(subscription => {
     const matchesSearch = 
-      subscription.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      subscription.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      subscription.planName.toLowerCase().includes(searchTerm.toLowerCase());
+      (subscription.userName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (subscription.userEmail || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (subscription.planName || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'all' || subscription.status === filterStatus;
     const matchesPlan = filterPlan === 'all' || subscription.planName === filterPlan;

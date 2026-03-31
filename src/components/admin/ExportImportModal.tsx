@@ -18,7 +18,7 @@ interface ExportImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode: 'export' | 'import';
-  entityType: 'users' | 'farms' | 'payments' | 'reports' | 'all';
+  entityType: 'users' | 'farms' | 'payments' | 'reports' | 'growers' | 'all';
   selectedIds?: string[];
 }
 
@@ -93,6 +93,18 @@ const ExportImportModal: React.FC<ExportImportModalProps> = ({
           { id: 'userEmail', label: 'Email del usuario', required: false },
           { id: 'createdAt', label: 'Fecha de creación', required: false },
           { id: 'processedAt', label: 'Fecha de procesamiento', required: false }
+        ];
+      case 'growers':
+        return [
+          { id: 'id', label: 'ID', required: true },
+          { id: 'full_name', label: 'Nombre Completo', required: true },
+          { id: 'email', label: 'Email', required: true },
+          { id: 'phone', label: 'Teléfono', required: false },
+          { id: 'identification_number', label: 'Cédula/NIT', required: true },
+          { id: 'department', label: 'Departamento', required: false },
+          { id: 'municipality', label: 'Municipio', required: false },
+          { id: 'total_area', label: 'Área Total', required: false },
+          { id: 'quality_score', label: 'Calificación', required: false }
         ];
       default:
         return [];

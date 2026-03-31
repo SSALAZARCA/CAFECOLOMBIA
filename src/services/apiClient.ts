@@ -122,7 +122,7 @@ export const API_ENDPOINTS = {
 
   // System
   system: {
-    health: '/api/ping',
+    health: 'ping',
     version: '/api/version',
     config: '/api/config'
   }

@@ -49,7 +49,9 @@ export const useOnlineStatus = () => {
     // In production, try to ping the API (use lightweight ping endpoint)
     try {
       const start = Date.now();
-      const response = await fetch('/api/ping', { cache: 'no-store' });
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+      const pingUrl = `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}${'ping'}`;
+      const response = await fetch(pingUrl, { cache: 'no-store' });
       const duration = Date.now() - start;
 
       const fromFallback = response.headers.get('X-From-Fallback') === 'true';

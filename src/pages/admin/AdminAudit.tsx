@@ -114,10 +114,10 @@ export default function AdminAudit() {
 
   const filteredLogs = auditLogs.filter(log => {
     const matchesSearch = 
-      log.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.resource.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.endpoint.toLowerCase().includes(searchTerm.toLowerCase());
+      (log.userName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (log.action || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (log.resource || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (log.endpoint || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesAction = filterAction === 'all' || log.action === filterAction;
     const matchesStatus = filterStatus === 'all' || log.status === filterStatus;
@@ -128,7 +128,7 @@ export default function AdminAudit() {
 
   const filteredEvents = securityEvents.filter(event => {
     const matchesSearch = 
-      event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (event.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (event.userName && event.userName.toLowerCase().includes(searchTerm.toLowerCase()));
     
     return matchesSearch;

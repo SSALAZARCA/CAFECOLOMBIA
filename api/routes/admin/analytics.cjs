@@ -20,33 +20,38 @@ router.get('/overview', async (req, res) => {
 
     const totalRevenue = totalPayments._sum.amount || 0;
 
-    // 2. Formatear para el frontend DashboardMetrics
+    // 2. Formatear para el frontend DashboardMetrics (Wrapper en metrics)
     res.json({
       success: true,
       data: {
-        users: {
-          total: growersCount,
-          active: growersCount, // Asumir activos por ahora
-          new_this_month: 0,
-          growth_rate: 0
-        },
-        subscriptions: {
-          total: activeSubs,
-          active: activeSubs,
-          new_this_month: 0,
-          revenue_this_month: totalRevenue // Simplificado
-        },
-        farms: {
-          total: farmsCount,
-          active: farmsCount,
-          total_area: 0, // TODO: agregar campo area en modelo
-          average_area: 0
-        },
-        revenue: {
-          total: totalRevenue,
-          this_month: totalRevenue,
-          last_month: 0,
-          growth_rate: 0
+        metrics: {
+          userGrowth: 0,
+          revenueGrowth: 0,
+          subscriptionsGrowth: 0,
+          users: {
+            total: growersCount,
+            active: growersCount,
+            new_this_month: 0,
+            growth_rate: 0
+          },
+          subscriptions: {
+            total: activeSubs,
+            active: activeSubs,
+            new_this_month: 0,
+            revenue_this_month: totalRevenue
+          },
+          farms: {
+            total: farmsCount,
+            active: farmsCount,
+            total_area: 0,
+            average_area: 0
+          },
+          revenue: {
+            total: totalRevenue,
+            this_month: totalRevenue,
+            last_month: 0,
+            growth_rate: 0
+          }
         }
       }
     });

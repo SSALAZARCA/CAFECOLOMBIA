@@ -106,10 +106,10 @@ export default function AdminPayments() {
 
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = 
-      payment.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.description.toLowerCase().includes(searchTerm.toLowerCase());
+      (payment.userName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (payment.userEmail || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (payment.transactionId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (payment.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'all' || payment.status === filterStatus;
     const matchesMethod = filterMethod === 'all' || payment.paymentMethod === filterMethod;
