@@ -1,138 +1,147 @@
 const express = require('express');
 const router = express.Router();
+const prisma = require('../../lib/prisma.cjs');
 
-// Mock data para fincas
-const mockFarms = [
-    {
-        id: 1,
-        name: 'Finca El Paraíso',
-        ownerId: 1,
-        ownerName: 'Juan Pérez',
-        location: 'Huila, Colombia',
-        area: 10.5,
-        altitude: 1800,
-        varieties: ['Caturra', 'Castillo'],
-        certifications: ['Orgánico'],
-        isActive: true,
-        createdAt: '2024-01-15T10:00:00Z'
-    },
-    {
-        id: 2,
-        name: 'Finca La Esperanza',
-        ownerId: 2,
-        ownerName: 'María González',
-        location: 'Nariño, Colombia',
-        area: 8.3,
-        altitude: 2000,
-        varieties: ['Geisha', 'Bourbon'],
-        certifications: ['Rainforest Alliance'],
-        isActive: true,
-        createdAt: '2024-02-20T14:00:00Z'
-    }
-];
-
-// GET /api/admin/farms - Listar fincas
+// GET /api/admin/farms - Listar fincas reales
 router.get('/', async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '' } = req.query;
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
 
-        let filtered = [...mockFarms];
-
+        const where = {};
         if (search) {
-            filtered = filtered.filter(f =>
-                f.name.toLowerCase().includes(search.toLowerCase()) ||
-                f.ownerName.toLowerCase().includes(search.toLowerCase()) ||
-                f.location.toLowerCase().includes(search.toLowerCase())
-            );
+            where.OR = [
+                { name: { contains: search } },
+                { status: { contains: search } }
+            ];
         }
 
-        const total = filtered.length;
-        const startIndex = (page - 1) * limit;
-        const paginated = filtered.slice(startIndex, startIndex + parseInt(limit));
+        const [farms, total] = await Promise.all([
+            prisma.farmLegacy.findMany({
+                where,
+                skip: (pageNum - 1) * limitNum,
+                take: limitNum,
+                include: {
+                    coffeeGrower: true
+                },
+                orderBy: { id: 'desc' }
+            }),
+            prisma.farmLegacy.count({ where })
+        ]);
+
+        const formattedFarms = farms.map(f => ({
+            id: f.id,
+            name: f.name,
+            ownerId: f.coffee_grower_id,
+            ownerName: f.coffeeGrower ? f.coffeeGrower.full_name : 'Desconocido',
+            location: f.coffeeGrower ? f.coffeeGrower.location : 'Sin ubicación',
+            area: 0, // Legacy no tiene área directamente
+            altitude: 0,
+            varieties: [],
+            certifications: [],
+            isActive: f.status === 'active',
+            createdAt: new Date().toISOString() // Placeholder para legacy
+        }));
 
         res.json({
             success: true,
             data: {
-                farms: paginated,
+                farms: formattedFarms,
                 pagination: {
-                    page: parseInt(page),
-                    limit: parseInt(limit),
+                    page: pageNum,
+                    limit: limitNum,
                     total,
-                    totalPages: Math.ceil(total / limit)
+                    totalPages: Math.ceil(total / limitNum)
                 }
             }
         });
     } catch (error) {
+        console.error('Error fetching farms:', error);
         res.status(500).json({ error: 'Error obteniendo fincas' });
     }
 });
 
-// GET /api/admin/farms/stats - Estadísticas
+// GET /api/admin/farms/stats - Estadísticas reales
 router.get('/stats', async (req, res) => {
     try {
+        const total = await prisma.farmLegacy.count();
         res.json({
-            total: mockFarms.length,
-            totalArea: mockFarms.reduce((sum, f) => sum + f.area, 0),
-            averageAltitude: Math.round(mockFarms.reduce((sum, f) => sum + f.altitude, 0) / mockFarms.length),
-            certified: mockFarms.filter(f => f.certifications.length > 0).length
+            total: total,
+            totalArea: 0,
+            averageAltitude: 0,
+            certified: 0
         });
     } catch (error) {
         res.status(500).json({ error: 'Error obteniendo estadísticas' });
     }
 });
 
-// GET /api/admin/farms/:id - Ver finca
+// GET /api/admin/farms/:id - Ver finca real
 router.get('/:id', async (req, res) => {
     try {
-        const farm = mockFarms.find(f => f.id === parseInt(req.params.id));
+        const farm = await prisma.farmLegacy.findUnique({
+            where: { id: parseInt(req.params.id) },
+            include: { coffeeGrower: true }
+        });
+        
         if (!farm) {
             return res.status(404).json({ error: 'Finca no encontrada' });
         }
-        res.json(farm);
+        res.json({
+            ...farm,
+            ownerName: farm.coffeeGrower ? farm.coffeeGrower.full_name : 'Desconocido',
+            isActive: farm.status === 'active'
+        });
     } catch (error) {
         res.status(500).json({ error: 'Error obteniendo finca' });
     }
 });
 
-// POST /api/admin/farms - Crear finca
+// POST /api/admin/farms - Crear finca real
 router.post('/', async (req, res) => {
     try {
-        const newFarm = {
-            id: mockFarms.length + 1,
-            ...req.body,
-            isActive: true,
-            createdAt: new Date().toISOString()
-        };
-        mockFarms.push(newFarm);
-        res.status(201).json({ success: true, farm: newFarm });
+        const { name, coffee_grower_id, status } = req.body;
+        const farm = await prisma.farmLegacy.create({
+            data: {
+                name,
+                coffee_grower_id: parseInt(coffee_grower_id),
+                status: status || 'active'
+            }
+        });
+        res.status(201).json({ success: true, data: farm });
     } catch (error) {
         res.status(500).json({ error: 'Error creando finca' });
     }
 });
 
-// PUT /api/admin/farms/:id - Actualizar finca
+// PUT /api/admin/farms/:id - Actualizar finca real
 router.put('/:id', async (req, res) => {
     try {
-        const index = mockFarms.findIndex(f => f.id === parseInt(req.params.id));
-        if (index === -1) {
-            return res.status(404).json({ error: 'Finca no encontrada' });
-        }
-        mockFarms[index] = { ...mockFarms[index], ...req.body };
-        res.json({ success: true, farm: mockFarms[index] });
+        const id = parseInt(req.params.id);
+        const updateData = req.body;
+        delete updateData.id;
+        delete updateData.ownerName;
+
+        const farm = await prisma.farmLegacy.update({
+            where: { id },
+            data: updateData
+        });
+        res.json({ success: true, data: farm });
     } catch (error) {
         res.status(500).json({ error: 'Error actualizando finca' });
     }
 });
 
-// DELETE /api/admin/farms/:id - Eliminar finca
+// DELETE /api/admin/farms/:id - Desactivar finca
 router.delete('/:id', async (req, res) => {
     try {
-        const index = mockFarms.findIndex(f => f.id === parseInt(req.params.id));
-        if (index === -1) {
-            return res.status(404).json({ error: 'Finca no encontrada' });
-        }
-        mockFarms.splice(index, 1);
-        res.json({ success: true, message: 'Finca eliminada' });
+        const id = parseInt(req.params.id);
+        await prisma.farmLegacy.update({
+            where: { id },
+            data: { status: 'inactive' }
+        });
+        res.json({ success: true, message: 'Finca desactivada' });
     } catch (error) {
         res.status(500).json({ error: 'Error eliminando finca' });
     }

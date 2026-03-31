@@ -1,18 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma.cjs');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cafe_colombia_jwt_secret_key_2024';
 
-// Middleware de autenticación local
+// Authentication Middleware
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-
     if (!token) return res.status(401).json({ success: false, message: 'No autenticado' });
-
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         req.user = decoded;
@@ -22,62 +19,70 @@ const verifyToken = (req, res, next) => {
     }
 };
 
-// GET /api/dashboard - Dashboard Completo para Caficultores
+// GET /api/dashboard - Dashboard Real para Caficultores
 router.get('/', verifyToken, async (req, res) => {
     try {
-        const userId = req.user.id; // ID del coffee_grower
+        const userId = req.user.id; // Corrected: This comes from the JWT payload
 
-        // 1. Obtener Caficultor con sus fincas
+        // 1. Fetch Grower and their farms
         const grower = await prisma.coffeeGrower.findUnique({
-            where: { id: userId },
+            where: { id: parseInt(userId) },
             include: { farms: true }
         });
 
-        if (!grower) {
-            return res.status(404).json({ success: false, error: 'Caficultor no encontrado' });
-        }
+        if (!grower) return res.status(404).json({ success: false, error: 'Caficultor no encontrado' });
 
-        // 2. Obtener Finca Principal (la primera por ahora)
-        const farm = grower.farms[0];
+        const firstFarm = grower.farms[0];
+        const farmId = firstFarm ? firstFarm.id : null;
 
-        // 3. Preparar datos base
-        let dashboardData = {
+        // 2. Aggregate Production (Sum of collections)
+        const collections = await prisma.coffeeCollection.findMany({
+            where: { 
+                worker: { 
+                    farm: { ownerId: String(userId) } 
+                } 
+            },
+            select: { quantityKg: true }
+        });
+
+        const totalProduction = collections.reduce((acc, c) => acc + c.quantityKg, 0);
+
+        // 3. Fetch Real Alerts
+        const alerts = await prisma.alert.findMany({
+            where: { farmId: farmId, isActive: true },
+            orderBy: { createdAt: 'desc' },
+            take: 5
+        });
+
+        // 4. Construct Dashboard Response
+        const dashboardData = {
             user: {
                 name: grower.full_name,
                 email: grower.email,
-                farmName: farm ? farm.name : 'Sin finca registrada'
+                farmName: firstFarm ? firstFarm.name : 'Sin finca'
             },
             farm: {
-                totalArea: 0,
-                coffeeArea: 0,
-                location: 'No registrada',
-                altitude: 0,
-                address: ''
+                location: grower.location || 'Colombia',
+                status: firstFarm ? firstFarm.status : 'inactive'
             },
             production: {
-                currentSeason: 0,
-                lastSeason: 0,
-                trend: 'stable'
+                totalAccumulated: totalProduction,
+                unit: 'kg',
+                status: totalProduction > 0 ? 'active' : 'no_data'
             },
             weather: {
-                temperature: 24, // Mock por defecto hasta integrar API
-                humidity: 75,
-                rainfall: 0
+                temperature: 24, // Mock until external API integrated
+                humidity: 78
             },
-            alerts: [],
-            tasks: []
+            alerts: alerts.map(a => ({
+                id: a.id,
+                title: a.title,
+                severity: a.severity,
+                message: a.message,
+                timestamp: a.createdAt
+            })),
+            tasks: [] // Could add real tasks here if needed
         };
-
-        if (farm) {
-            // Mapear datos de FarmLegacy si existen propiedades extra o dejarlas por defecto
-            // FarmLegacy tiene: id, name, status. Faltan area, altitude, etc en el esquema actual.
-            dashboardData.farm.location = 'Colombia'; // Placeholder
-        }
-
-        // 4. Buscar Alertas y Tareas (Si existieran tablas reales vinculadas)
-        // Por ahora devolvemos arrays vacíos o simulados si la tabla no existe en Prisma.
-        // Dado que migramos a SQLite y el schema.prisma es limitado, mantenemos la estructura vacía
-        // para no romper el frontend, pero lista para conectar.
 
         res.json({
             success: true,
@@ -85,8 +90,8 @@ router.get('/', verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error en dashboard:', error);
-        res.status(500).json({ success: false, error: 'Error interno' });
+        console.error('Error en dashboard real:', error);
+        res.status(500).json({ success: false, error: 'Error obteniendo dashboard real' });
     }
 });
 

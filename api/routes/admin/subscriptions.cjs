@@ -1,121 +1,72 @@
 const express = require('express');
 const router = express.Router();
+const prisma = require('../../lib/prisma.cjs');
 
-// Mock data para suscripciones
-const mockSubscriptions = [
-    {
-        id: 1,
-        userId: 1,
-        userName: 'Juan Pérez',
-        planId: 2,
-        planName: 'Plan Pro',
-        status: 'active',
-        startDate: '2024-01-15T00:00:00Z',
-        endDate: '2025-01-15T00:00:00Z',
-        autoRenew: true,
-        amount: 50000
-    },
-    {
-        id: 2,
-        userId: 2,
-        userName: 'María González',
-        planId: 1,
-        planName: 'Plan Básico',
-        status: 'active',
-        startDate: '2024-02-20T00:00:00Z',
-        endDate: '2025-02-20T00:00:00Z',
-        autoRenew: false,
-        amount: 30000
-    }
-];
-
-// GET /api/admin/subscriptions - Listar suscripciones
+// GET /api/admin/subscriptions - Listar suscripciones reales (Prisma)
 router.get('/', async (req, res) => {
     try {
         const { page = 1, limit = 20, status = '' } = req.query;
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
 
-        let filtered = [...mockSubscriptions];
-
+        const where = {};
         if (status) {
-            filtered = filtered.filter(s => s.status === status);
+            where.status = status;
         }
 
-        const total = filtered.length;
-        const startIndex = (page - 1) * limit;
-        const paginated = filtered.slice(startIndex, startIndex + parseInt(limit));
+        const [subscriptions, total] = await Promise.all([
+            prisma.subscription.findMany({
+                where,
+                skip: (pageNum - 1) * limitNum,
+                take: limitNum,
+                include: {
+                    plan: true
+                },
+                orderBy: { createdAt: 'desc' }
+            }),
+            prisma.subscription.count({ where })
+        ]);
 
         res.json({
-            success: true, data: {
-                subscriptions: paginated,
+            success: true, 
+            data: {
+                subscriptions: subscriptions,
                 pagination: {
-                    page: parseInt(page),
-                    limit: parseInt(limit),
+                    page: pageNum,
+                    limit: limitNum,
                     total,
-                    totalPages: Math.ceil(total / limit)
+                    totalPages: Math.ceil(total / limitNum)
                 }
             }
         });
     } catch (error) {
+        console.error('Error fetching real subscriptions:', error);
         res.status(500).json({ error: 'Error obteniendo suscripciones' });
     }
 });
 
-// GET /api/admin/subscriptions/stats - Estadísticas
+// GET /api/admin/subscriptions/stats - Estadísticas reales
 router.get('/stats', async (req, res) => {
     try {
-        const active = mockSubscriptions.filter(s => s.status === 'active');
-        const revenue = mockSubscriptions.reduce((sum, s) => sum + s.amount, 0);
+        const [total, active, revenue] = await Promise.all([
+            prisma.subscription.count(),
+            prisma.subscription.count({ where: { status: 'active' } }),
+            prisma.payment.aggregate({
+                _sum: { amount: true },
+                where: { status: 'completed' }
+            })
+        ]);
 
         res.json({
-            success: true, data: {
-                total: mockSubscriptions.length,
-                active: active.length,
-                monthlyRevenue: revenue,
+            success: true, 
+            data: {
+                total,
+                active,
+                monthlyRevenue: revenue._sum.amount || 0,
             }
         });
     } catch (error) {
         res.status(500).json({ error: 'Error obteniendo estadísticas' });
-    }
-});
-
-// GET /api/admin/subscriptions/:id - Ver suscripción
-router.get('/:id', async (req, res) => {
-    try {
-        const subscription = mockSubscriptions.find(s => s.id === parseInt(req.params.id));
-        if (!subscription) {
-            return res.status(404).json({ error: 'Suscripción no encontrada' });
-        }
-        res.json({ success: true, data: subscription });
-    } catch (error) {
-        res.status(500).json({ error: 'Error obteniendo suscripción' });
-    }
-});
-
-// PUT /api/admin/subscriptions/:id - Actualizar suscripción
-router.put('/:id', async (req, res) => {
-    try {
-        const index = mockSubscriptions.findIndex(s => s.id === parseInt(req.params.id));
-        if (index === -1) {
-            return res.status(404).json({ error: 'Suscripción no encontrada' });
-        }
-        mockSubscriptions[index] = { ...mockSubscriptions[index], ...req.body };
-        res.json({ success: true, data: mockSubscriptions[index] });
-    } catch (error) {
-        res.status(500).json({ error: 'Error actualizando suscripción' });
-    }
-});
-
-// DELETE /api/admin/subscriptions/:id - Cancelar suscripción
-router.delete('/:id', async (req, res) => {
-    try {
-        const index = mockSubscriptions.findIndex(s => s.id === parseInt(req.params.id));
-        if (index === -1) {
-            return res.status(404).json({ error: 'Suscripción no encontrada' });
-        }
-        mockSubscriptions[index].status = 'cancelled';
-        res.json({ success: true, message: 'Suscripción cancelada' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error cancelando suscripción' });
     }
 });
 

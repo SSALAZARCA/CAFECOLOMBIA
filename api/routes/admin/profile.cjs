@@ -4,8 +4,7 @@ const router = express.Router();
 // const mysql = require('mysql2/promise');
 
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../../lib/prisma.cjs');
 
 // GET /api/admin/profile - Obtener perfil del admin
 router.get('/', async (req, res) => {

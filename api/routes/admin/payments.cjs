@@ -1,110 +1,85 @@
 const express = require('express');
 const router = express.Router();
+const prisma = require('../../lib/prisma.cjs');
 
-// Mock data para pagos
-const mockPayments = [
-    {
-        id: 1,
-        userId: 1,
-        userName: 'Juan Pérez',
-        amount: 50000,
-        currency: 'COP',
-        method: 'credit_card',
-        status: 'completed',
-        description: 'Suscripción Plan Pro',
-        createdAt: new Date(Date.now() - 86400000).toISOString()
-    },
-    {
-        id: 2,
-        userId: 2,
-        userName: 'María González',
-        amount: 30000,
-        currency: 'COP',
-        method: 'bank_transfer',
-        status: 'pending',
-        description: 'Suscripción Plan Básico',
-        createdAt: new Date(Date.now() - 172800000).toISOString()
-    }
-];
-
-// GET /api/admin/payments - Listar pagos
+// GET /api/admin/payments - Listar pagos reales
 router.get('/', async (req, res) => {
     try {
         const { page = 1, limit = 20, status = '' } = req.query;
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
 
-        let filtered = [...mockPayments];
-
+        const where = {};
         if (status) {
-            filtered = filtered.filter(p => p.status === status);
+            where.status = status;
         }
 
-        const total = filtered.length;
-        const startIndex = (page - 1) * limit;
-        const paginated = filtered.slice(startIndex, startIndex + parseInt(limit));
+        const [payments, total] = await Promise.all([
+            prisma.payment.findMany({
+                where,
+                skip: (pageNum - 1) * limitNum,
+                take: limitNum,
+                orderBy: { createdAt: 'desc' }
+            }),
+            prisma.payment.count({ where })
+        ]);
 
         res.json({
-            success: true, data: {
-                payments: paginated,
+            success: true, 
+            data: {
+                payments: payments,
                 pagination: {
-                    page: parseInt(page),
-                    limit: parseInt(limit),
+                    page: pageNum,
+                    limit: limitNum,
                     total,
-                    totalPages: Math.ceil(total / limit)
+                    totalPages: Math.ceil(total / limitNum)
                 }
             }
         });
     } catch (error) {
+        console.error('Error fetching payments:', error);
         res.status(500).json({ error: 'Error obteniendo pagos' });
     }
 });
 
-// GET /api/admin/payments/stats - Estadísticas de pagos
+// GET /api/admin/payments/stats - Estadísticas reales de pagos
 router.get('/stats', async (req, res) => {
     try {
-        const total = mockPayments.reduce((sum, p) => sum + p.amount, 0);
-        const completed = mockPayments.filter(p => p.status === 'completed');
-        const pending = mockPayments.filter(p => p.status === 'pending');
+        const stats = await prisma.payment.aggregate({
+            _sum: { amount: true },
+            _count: { id: true },
+            where: { status: 'completed' }
+        });
+
+        const pendingCount = await prisma.payment.count({ where: { status: 'pending' } });
 
         res.json({
-            success: true, data: {
-                totalRevenue: total,
-                completedPayments: completed.length,
-                pendingPayments: pending.length,
-                averagePayment: Math.round(total / mockPayments.length)
+            success: true, 
+            data: {
+                totalRevenue: stats._sum.amount || 0,
+                completedPayments: stats._count.id || 0,
+                pendingPayments: pendingCount,
+                averagePayment: stats._count.id ? Math.round(stats._sum.amount / stats._count.id) : 0
             }
         });
     } catch (error) {
+        console.error('Error fetching payment stats:', error);
         res.status(500).json({ error: 'Error obteniendo estadísticas' });
     }
 });
 
-// GET /api/admin/payments/:id - Ver pago específico
+// GET /api/admin/payments/:id - Ver pago real
 router.get('/:id', async (req, res) => {
     try {
-        const payment = mockPayments.find(p => p.id === parseInt(req.params.id));
+        const payment = await prisma.payment.findUnique({
+            where: { id: parseInt(req.params.id) }
+        });
         if (!payment) {
             return res.status(404).json({ error: 'Pago no encontrado' });
         }
         res.json({ success: true, data: payment });
     } catch (error) {
         res.status(500).json({ error: 'Error obteniendo pago' });
-    }
-});
-
-// PUT /api/admin/payments/:id/status - Actualizar estado de pago
-router.put('/:id/status', async (req, res) => {
-    try {
-        const { status } = req.body;
-        const index = mockPayments.findIndex(p => p.id === parseInt(req.params.id));
-
-        if (index === -1) {
-            return res.status(404).json({ error: 'Pago no encontrado' });
-        }
-
-        mockPayments[index].status = status;
-        res.json({ success: true, data: mockPayments[index] });
-    } catch (error) {
-        res.status(500).json({ error: 'Error actualizando pago' });
     }
 });
 

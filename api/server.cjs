@@ -2,13 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const fs = require('fs');
-const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios'); // Import axios for scraping
 const helmet = require('helmet'); // Security Headers
+const prisma = require('./lib/prisma.cjs'); // Singleton de Prisma
 
 const logger = require('./lib/logger.cjs'); // Importar el logger
 const { errorHandler, asyncErrorHandler, validateRequest, ErrorCodes } = require('./lib/errorHandler.cjs'); // Importar manejador de errores
@@ -42,8 +42,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// Configuración de la base de datos (acepta ambas familias DB_* y MYSQL_*)
-const { dbConfig, pool } = require('./config/database.cjs');
+// Configuración de la base de datos eliminada (ahora se usa Prisma)
 
 // Configuración de CORS
 const parsedOrigins = process.env.CORS_ORIGIN
@@ -456,63 +455,12 @@ app.post('/api/auth/admin/login', validateRequest({
   minLength: { password: 6 }
 }), asyncErrorHandler(authController.loginUnified));
 
-// Registro de caficultor
+// Registro de caficultor (Migrado a Prisma)
 app.post('/api/auth/register', validateRequest({
   required: ['email', 'password'],
   email: ['email'],
   minLength: { password: 6 }
-}), asyncErrorHandler(async (req, res) => {
-  const startTime = Date.now();
-  let connection = null;
-  try {
-    const body = req.body || {};
-    const { email, password, firstName, lastName, phone, farmName: rawFarmName, farmLocation, farmSize } = body;
-    const name = (body.name || '').trim();
-    const farmName = (rawFarmName || body.fincaName || '').trim();
-
-    // Normalizar datos...
-    // Insertar usuario y finca...
-    // (Omitiendo bloques largos de lógica idéntica para brevedad, usamos la lógica Incoming)
-
-    // Simplificación para restoration:
-    connection = await mysql.createConnection(dbConfig);
-
-    // Check existing
-    const [existing] = await connection.execute('SELECT id FROM coffee_growers WHERE email = ?', [email]);
-    if (existing.length > 0) {
-      await connection.end();
-      return res.status(409).json({ success: false, message: 'El email ya está registrado' });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    let fullName = firstName ? `${firstName} ${lastName || ''}`.trim() : name;
-
-    // Insert grower
-    const [result] = await connection.execute(
-      `INSERT INTO coffee_growers (email, password_hash, full_name, phone, status, created_at) VALUES (?, ?, ?, ?, 'active', NOW())`,
-      [email, passwordHash, fullName, phone || null]
-    );
-    const growerId = result.insertId;
-
-    if (farmName) {
-      await connection.execute(
-        `INSERT INTO farms (coffee_grower_id, name, created_at, status) VALUES (?, ?, NOW(), 'active')`,
-        [growerId, farmName]
-      );
-    }
-
-    await connection.end();
-    return res.status(201).json({
-      success: true,
-      message: 'Registro exitoso',
-      user: { id: growerId, email, fullName, role: 'coffee_grower' }
-    });
-
-  } catch (error) {
-    if (connection) await connection.end();
-    throw error;
-  }
-}));
+}), asyncErrorHandler(authController.register));
 
 // Admin login handler reusing same logic if needed, or redirecting to main login
 
@@ -616,9 +564,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error', message: err.message, stack: process.env.NODE_ENV === 'development' ? err.stack : undefined });
 });
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-
 /**
  * Asegura que el superadministrador Santiago Salazar esté configurado (Coolify Auto-Bootstrap)
  */
@@ -669,4 +614,67 @@ app.listen(PORT, '0.0.0.0', async () => {
   
   // Ejecutar bootstrap de superadmin
   await ensureSuperAdminConfig();
+  // Sembrar planes iniciales si no existen
+  await seedSubscriptionPlans();
+  // Sembrar configuraciones iniciales si no existen
+  await seedSystemSettings();
 });
+
+/**
+ * Siembra los planes de suscripción básicos si la tabla está vacía
+ */
+async function seedSubscriptionPlans() {
+  try {
+    const count = await prisma.subscriptionPlan.count();
+    if (count === 0) {
+      await prisma.subscriptionPlan.createMany({
+        data: [
+          {
+            name: 'Plan Básico',
+            description: 'Ideal para pequeños caficultores',
+            price: 30000,
+            currency: 'COP',
+            interval: 'month',
+            features: JSON.stringify(['Hasta 2 fincas', 'Reportes básicos', 'Soporte por email']),
+            isActive: true
+          },
+          {
+            name: 'Plan Pro',
+            description: 'Para caficultores profesionales',
+            price: 50000,
+            currency: 'COP',
+            interval: 'month',
+            features: JSON.stringify(['Hasta 5 fincas', 'Reportes avanzados', 'Soporte prioritario', 'Analíticas']),
+            isActive: true
+          }
+        ]
+      });
+      console.log('✅ Bootstrapping: Planes de suscripción iniciales creados.');
+    }
+  } catch (error) {
+    console.error('❌ Error sembrando planes de suscripción:', error.message);
+  }
+}
+
+/**
+ * Siembra las configuraciones básicas del sistema si la tabla está vacía
+ */
+async function seedSystemSettings() {
+  try {
+    const count = await prisma.systemSetting.count();
+    if (count === 0) {
+      await prisma.systemSetting.createMany({
+        data: [
+          { key: 'site_name', value: 'Café Colombia', section: 'general' },
+          { key: 'contact_email', value: 'contacto@cafecolombia.site', section: 'general' },
+          { key: 'currency', value: 'COP', section: 'general' },
+          { key: 'password_min_length', value: '8', section: 'security' },
+          { key: 'require_numbers', value: 'true', section: 'security' }
+        ]
+      });
+      console.log('✅ Bootstrapping: Configuraciones del sistema iniciales creadas.');
+    }
+  } catch (error) {
+    console.error('❌ Error sembrando configuraciones del sistema:', error.message);
+  }
+}

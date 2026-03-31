@@ -1,7 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma.cjs');
 const logger = require('../lib/logger.cjs');
 
 // Clave secreta para JWT
@@ -112,6 +111,76 @@ const authController = {
 
         } catch (error) {
             console.error('❌ Error en Login:', error);
+            next(error);
+        }
+    },
+
+    /**
+     * Registro de Caficultor (Migrado a Prisma)
+     */
+    register: async (req, res, next) => {
+        try {
+            const body = req.body || {};
+            const { email, password, firstName, lastName, phone, farmName: rawFarmName } = body;
+            const name = (body.name || '').trim();
+            const farmName = (rawFarmName || body.fincaName || '').trim();
+
+            // 1. Verificar si el usuario ya existe
+            const existingGrower = await prisma.coffeeGrower.findUnique({
+                where: { email }
+            });
+
+            if (existingGrower) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'El email ya está registrado'
+                });
+            }
+
+            // 2. Crear el hash de la contraseña
+            const passwordHash = await bcrypt.hash(password, 10);
+            const fullName = firstName ? `${firstName} ${lastName || ''}`.trim() : name;
+
+            // 3. Crear el caficultor y su finca en una transacción de Prisma
+            const result = await prisma.$transaction(async (tx) => {
+                const grower = await tx.coffeeGrower.create({
+                    data: {
+                        email,
+                        password_hash: passwordHash,
+                        full_name: fullName,
+                        phone: phone || null,
+                        status: 'active'
+                    }
+                });
+
+                if (farmName) {
+                    await tx.farm.create({
+                        data: {
+                            coffee_grower_id: grower.id,
+                            name: farmName,
+                            status: 'active'
+                        }
+                    });
+                }
+
+                return grower;
+            });
+
+            logger.info('Registro exitoso de caficultor', { email: result.email });
+
+            return res.status(201).json({
+                success: true,
+                message: 'Registro exitoso',
+                user: {
+                    id: result.id,
+                    email: result.email,
+                    fullName: result.full_name,
+                    role: 'coffee_grower'
+                }
+            });
+
+        } catch (error) {
+            console.error('❌ Error en Registro:', error);
             next(error);
         }
     }

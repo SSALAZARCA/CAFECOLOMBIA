@@ -1,85 +1,54 @@
 const express = require('express');
 const router = express.Router();
-const { dbConfig, pool } = require('../config/database.cjs');
-const mysql = require('mysql2/promise');
-const { errorHandler, asyncErrorHandler, validateRequest } = require('../lib/errorHandler.cjs');
+const prisma = require('../lib/prisma.cjs');
 
-// GET /api/market-prices - Get all prices (filtered by date/limit if needed)
-router.get('/', asyncErrorHandler(async (req, res) => {
-    const connection = await mysql.createConnection(dbConfig);
+// GET /api/market-prices - Obtener precios reales con Prisma
+router.get('/', async (req, res) => {
     try {
-        // Basic limit for safety
-        const [rows] = await connection.execute(
-            'SELECT * FROM market_prices ORDER BY date DESC LIMIT 50'
-        );
-        await connection.end();
-        res.json(rows); // Return array directly to match common patterns
-    } catch (error) {
-        if (connection) await connection.end();
-        throw error;
-    }
-}));
-
-// POST /api/market-prices - Create new price
-router.post('/', asyncErrorHandler(async (req, res) => {
-    const connection = await mysql.createConnection(dbConfig);
-    try {
-        const { date, price, source, coffeeType, region, notes, serverId } = req.body;
-
-        // If serverId provided (from some syncs), ignore or use? Usually DB generates ID.
-        // We'll standard insert.
-        const [result] = await connection.execute(
-            `INSERT INTO market_prices (date, price, source, coffee_type, region, notes, created_at) 
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-            [date, price, source, coffeeType || 'Standard', region || 'Local', notes || '']
-        );
-
-        const newId = result.insertId;
-        await connection.end();
-
-        res.status(201).json({
-            success: true,
-            id: newId,
-            message: 'Precio registrado en servidor'
+        const prices = await prisma.marketPrice.findMany({
+            orderBy: { date: 'desc' },
+            take: 50
         });
+        res.json(prices);
     } catch (error) {
-        if (connection) await connection.end();
-        throw error;
+        console.error('Error fetching market prices:', error);
+        res.status(500).json({ error: 'Error obteniendo precios del mercado' });
     }
-}));
+});
 
-// PUT /api/market-prices/:id - Update
-router.put('/:id', asyncErrorHandler(async (req, res) => {
-    const connection = await mysql.createConnection(dbConfig);
+// POST /api/market-prices - Crear nuevo precio real
+router.post('/', async (req, res) => {
     try {
-        const { id } = req.params;
+        const { date, price, source, coffeeType, region, notes } = req.body;
+        const newPrice = await prisma.marketPrice.create({
+            data: {
+                date: date ? new Date(date) : new Date(),
+                price: parseFloat(price),
+                source,
+                coffeeType,
+                region,
+                notes
+            }
+        });
+        res.status(201).json({ success: true, data: newPrice });
+    } catch (error) {
+        res.status(500).json({ error: 'Error registrando precio' });
+    }
+});
+
+// PUT /api/market-prices/:id - Actualizar precio
+router.put('/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
         const { price, source, notes } = req.body;
-
-        await connection.execute(
-            'UPDATE market_prices SET price = ?, source = ?, notes = ? WHERE id = ?',
-            [price, source, notes, id]
-        );
-
-        await connection.end();
-        res.json({ success: true, message: 'Precio actualizado' });
+        const updated = await prisma.marketPrice.update({
+            where: { id },
+            data: { price: parseFloat(price), source, notes }
+        });
+        res.json({ success: true, data: updated });
     } catch (error) {
-        if (connection) await connection.end();
-        throw error;
+        res.status(500).json({ error: 'Error actualizando precio' });
     }
-}));
-
-// DELETE /api/market-prices/:id
-router.delete('/:id', asyncErrorHandler(async (req, res) => {
-    const connection = await mysql.createConnection(dbConfig);
-    try {
-        const { id } = req.params;
-        await connection.execute('DELETE FROM market_prices WHERE id = ?', [id]);
-        await connection.end();
-        res.json({ success: true, message: 'Precio eliminado' });
-    } catch (error) {
-        if (connection) await connection.end();
-        throw error;
-    }
-}));
+});
 
 module.exports = router;

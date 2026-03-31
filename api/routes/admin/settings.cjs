@@ -1,83 +1,66 @@
 const express = require('express');
 const router = express.Router();
+const prisma = require('../../lib/prisma.cjs');
 
-// Mock data para configuración
-const mockSettings = {
-    general: {
-        siteName: 'Café Colombia',
-        siteUrl: 'https://cafecolombia.com',
-        contactEmail: 'contacto@cafecolombia.com',
-        supportEmail: 'soporte@cafecolombia.com',
-        timezone: 'America/Bogota',
-        language: 'es',
-        currency: 'COP'
-    },
-    features: {
-        registrationEnabled: true,
-        maintenanceMode: false,
-        analyticsEnabled: true,
-        notificationsEnabled: true,
-        twoFactorRequired: false
-    },
-    limits: {
-        maxFarmsPerUser: 5,
-        maxFileSize: 10485760, // 10MB
-        sessionTimeout: 3600 // 1 hour
-    },
-    integrations: {
-        emailProvider: 'sendgrid',
-        smsProvider: 'twilio',
-        paymentGateway: 'stripe',
-        storageProvider: 's3'
-    },
-    payment: {
-        provider: 'stripe',
-        currency: 'COP',
-        publicKey: 'pk_test_sample',
-        autoRenew: true
-    }
-};
-
-// GET /api/admin/settings - Obtener configuración
+// GET /api/admin/settings - Obtener configuración real
 router.get('/', async (req, res) => {
     try {
-        res.json(mockSettings);
+        const settings = await prisma.systemSetting.findMany();
+        
+        // Convert to key-value object for easy use
+        const formatted = settings.reduce((acc, s) => {
+            if (!acc[s.section]) acc[s.section] = {};
+            acc[s.section][s.key] = s.value;
+            return acc;
+        }, {});
+
+        res.json(formatted);
     } catch (error) {
+        console.error('Error fetching system settings:', error);
         res.status(500).json({ error: 'Error obteniendo configuración' });
     }
 });
 
-// PUT /api/admin/settings - Actualizar configuración
+// PUT /api/admin/settings - Actualizar configuración real
 router.put('/', async (req, res) => {
     try {
-        const { section, data } = req.body;
+        const { section = 'general', data } = req.body;
+        
+        // Map and upsert each key
+        const updates = Object.keys(data).map(key => {
+            return prisma.systemSetting.upsert({
+                where: { key },
+                update: { value: String(data[key]), section },
+                create: { key, value: String(data[key]), section }
+            });
+        });
 
-        if (section && mockSettings[section]) {
-            mockSettings[section] = { ...mockSettings[section], ...data };
-        } else {
-            Object.assign(mockSettings, req.body);
-        }
+        await Promise.all(updates);
 
         res.json({
             success: true,
-            message: 'Configuración actualizada',
-            settings: mockSettings
+            message: 'Configuración actualizada en base de datos'
         });
     } catch (error) {
+        console.error('Error updating system settings:', error);
         res.status(500).json({ error: 'Error actualizando configuración' });
     }
 });
 
-// GET /api/admin/settings/:section - Obtener sección específica
+// GET /api/admin/settings/:section - Obtener sección específica real
 router.get('/:section', async (req, res) => {
     try {
         const { section } = req.params;
+        const settings = await prisma.systemSetting.findMany({
+            where: { section }
+        });
 
-        if (!mockSettings[section]) {
-            return res.status(404).json({ error: 'Sección no encontrada' });
-        }
+        const formatted = settings.reduce((acc, s) => {
+            acc[s.key] = s.value;
+            return acc;
+        }, {});
 
-        res.json(mockSettings[section]);
+        res.json(formatted);
     } catch (error) {
         res.status(500).json({ error: 'Error obteniendo sección' });
     }

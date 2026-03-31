@@ -1,9 +1,8 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma.cjs');
 const { authenticateToken } = require('../middleware/auth.cjs');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // GET /api/dashboard - Get coffee grower dashboard data
 router.get('/', authenticateToken, async (req, res) => {

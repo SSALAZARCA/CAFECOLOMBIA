@@ -97,6 +97,10 @@ COPY --chown=cafeapp:nodejs api/package.json ./api/
 COPY --chown=cafeapp:nodejs ecosystem.config.cjs ./
 COPY --chown=cafeapp:nodejs scripts/ ./scripts/
 
+# Copiar el script de entrada y darle permisos de ejecución
+COPY --chown=cafeapp:nodejs scripts/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Instalar PM2 globalmente
 RUN npm install -g pm2
 
@@ -106,9 +110,10 @@ USER cafeapp
 # Exponer puerto
 EXPOSE 5001
 
-# Health check (independiente de la DB)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD curl -fsS http://localhost:5001/api/ping || exit 1
 
-# Comando por defecto
+# Usar el script de entrada para ejecutar migraciones antes de PM2
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["pm2-runtime", "start", "ecosystem.config.cjs", "--env", "production"]

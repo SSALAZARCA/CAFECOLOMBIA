@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 // ==========================================
@@ -237,4 +237,146 @@ model Notification {
   // No strict relation to support multiple user tables (CoffeeGrower, AdminUser) without polymorphism complexity
   
   @@map("notifications")
+}
+
+// ==========================================
+// MODELS FOR PAYMENTS & SUBSCRIPTIONS
+// ==========================================
+
+model SubscriptionPlan {
+  id            Int            @id @default(autoincrement())
+  name          String
+  description   String?
+  price         Float
+  currency      String         @default("COP")
+  interval      String         @default("month") // month, year
+  features      String?        // JSON string
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id               Int              @id @default(autoincrement())
+  userId           Int              // CoffeeGrower ID
+  planId           Int
+  status           String           @default("active") // active, cancelled, expired, trial
+  startDate        DateTime         @default(now())
+  endDate          DateTime
+  autoRenew        Boolean          @default(true)
+  metadata         String?          // JSON string
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  plan             SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id               Int      @id @default(autoincrement())
+  userId           Int      // CoffeeGrower ID
+  amount           Float
+  currency         String   @default("COP")
+  method           String   // credit_card, bank_transfer, wompi, etc
+  status           String   @default("pending") // pending, completed, failed, refunded
+  description      String?
+  transactionId    String?  @unique // ID del proveedor de pagos (e.g. Wompi)
+  metadata         String?  // JSON string
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("payments")
+}
+
+// ==========================================
+// NEW MODELS FOR PHASE 2 (ROLE UNIFICATION)
+// ==========================================
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     // User ID (Admin or Grower)
+  userName  String?
+  action    String   // LOGIN, CREATE, UPDATE, DELETE, etc
+  resource  String   // users, farms, growers, etc
+  details   String?  @db.Text
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String   @db.Text
+  section   String   @default("general") // general, security, features, etc
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model Alert {
+  id              Int       @id @default(autoincrement())
+  farmId          Int?
+  type            String    // weather, pest, irrigation, etc
+  severity        String    // low, medium, high, critical
+  title           String
+  message         String    @db.Text
+  isActive        Boolean   @default(true)
+  acknowledgedAt  DateTime?
+  metadata        String?   @db.Text // JSON string
+  createdAt       DateTime  @default(now())
+
+  @@index([farmId])
+  @@map("smart_alerts")
+}
+
+model ProductionRecord {
+  id             Int      @id @default(autoincrement())
+  farmId         Int
+  lotId          String?
+  quantityKg     Float
+  collectionDate DateTime @default(now())
+  coffeeType     String?
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([farmId])
+  @@map("production_records")
+}
+
+model MarketPrice {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @default(now())
+  price       Float
+  currency    String   @default("COP")
+  source      String?
+  coffeeType  String?
+  region      String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@map("market_prices_modern")
+}
+
+model AIAnalysis {
+  id             Int      @id @default(autoincrement())
+  farmId         Int
+  lotId          String?
+  type           String   // phytosanitary, predictive, optimization
+  status         String   @default("pending") // pending, processing, completed, failed
+  confidence     Float    @default(0.0)
+  result         String?  @db.Text // JSON string with diagnosis/recommendations
+  metadata       String?  @db.Text // JSON string with image info, data points
+  createdAt      DateTime @default(now())
+  completedAt    DateTime?
+  processingTime Int?     // seconds
+
+  @@index([farmId])
+  @@map("ai_analysis_results")
 }

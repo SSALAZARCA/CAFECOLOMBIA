@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../../lib/prisma.cjs');
 const bcrypt = require('bcryptjs');
-const prisma = new PrismaClient();
 
 // GET /api/admin/users - Listar usuarios (Real Data)
 router.get('/', async (req, res) => {

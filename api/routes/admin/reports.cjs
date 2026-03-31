@@ -1,40 +1,41 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../../lib/prisma.cjs');
 
-// GET /api/admin/reports
+// GET /api/admin/reports - Reportes combinados de sistema
 router.get('/', async (req, res) => {
     try {
         const { period = '12months' } = req.query;
 
-        // 1. User Growth (Last 6-12 months)
-        // Group CoffeeGrowers and Users by created_at month
-        const growers = await prisma.coffeeGrower.findMany({ select: { created_at: true } });
-        // const genericUsers = await prisma.user.findMany({ select: { createdAt: true } }); // Optional merge
+        // 1. Crecimiento de Usuarios (Basado en CoffeeGrowers Reales)
+        const growers = await prisma.coffeeGrower.findMany({ 
+            select: { created_at: true },
+            orderBy: { created_at: 'asc' }
+        });
 
         const monthlyStats = {};
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
         growers.forEach(g => {
             if (!g.created_at) return;
             const d = new Date(g.created_at);
-            const monthKey = `${months[d.getMonth()]} ${d.getFullYear()}`; // Unique key
+            const monthKey = `${months[d.getMonth()]} ${d.getFullYear()}`;
             if (!monthlyStats[monthKey]) monthlyStats[monthKey] = 0;
             monthlyStats[monthKey]++;
         });
 
         const userGrowth = Object.entries(monthlyStats).map(([month, count]) => ({
-            month: month.split(' ')[0], // Simpler label
+            month: month.split(' ')[0],
             users: count,
-            growth: 0 // Placeholder or calculate diff
-        })).slice(-6); // Last 6 months
+            growth: 0 
+        })).slice(-6);
 
-        // 2. Geographic Stats (Farms by Department)
-        // Check if Farm has department
-        const farms = await prisma.farm.findMany({ select: { department: true } });
+        // 2. Estadísticas Geográficas (Fincas Reales - Legacy y Modern)
+        const farmsLegacy = await prisma.farmLegacy.findMany({ select: { id: true } });
+        const farmsModern = await prisma.farm.findMany({ select: { department: true } });
+        
         const regionMap = {};
-        farms.forEach(f => {
+        farmsModern.forEach(f => {
             const region = f.department || 'Desconocido';
             if (!regionMap[region]) regionMap[region] = 0;
             regionMap[region]++;
@@ -42,35 +43,42 @@ router.get('/', async (req, res) => {
 
         const coffeeGrowerStats = Object.entries(regionMap).map(([region, count]) => ({
             region,
-            farms: count, // Using farm count as proxy for grower density
+            farms: count,
             growers: count
         })).sort((a, b) => b.farms - a.farms).slice(0, 5);
 
-        // 3. Real Totals
-        const totalGrowers = await prisma.coffeeGrower.count();
-        const totalFarms = await prisma.farm.count();
+        // 3. Totales Financieros Reales (Basados en el nuevo modelo Payment)
+        const [totalGrowers, totalFarms, paymentStats, subscriptionStats] = await Promise.all([
+            prisma.coffeeGrower.count(),
+            prisma.farmLegacy.count() + prisma.farm.count(),
+            prisma.payment.aggregate({
+                _sum: { amount: true },
+                where: { status: 'completed' }
+            }),
+            prisma.subscription.count({ where: { status: 'active' } })
+        ]);
+
+        const totalRevenue = paymentStats._sum.amount || 0;
 
         res.json({
-            userGrowth: userGrowth.length ? userGrowth : [{ month: 'N/A', users: 0, growth: 0 }],
-            // Mocking revenue/subscriptions as those tables are not populated yet
-            revenueAnalysis: [],
+            userGrowth: userGrowth.length ? userGrowth : [{ month: months[new Date().getMonth()], users: totalGrowers, growth: 0 }],
+            revenueAnalysis: [], // TODO: Agregar agregación por mes cuando haya datos
             subscriptionDistribution: [
-                { plan: 'TRABAJADOR', count: 0, revenue: 0 },
-                { plan: 'CAFICULTOR', count: totalGrowers, revenue: 0 }
+                { plan: 'Activas', count: subscriptionStats, revenue: totalRevenue }
             ],
             paymentMethods: [],
             coffeeGrowerStats: coffeeGrowerStats,
             topPerformingPlans: [],
             monthlyMetrics: {
                 totalUsers: totalGrowers,
-                activeSubscriptions: 0,
-                totalRevenue: 0,
+                activeSubscriptions: subscriptionStats,
+                totalRevenue: totalRevenue,
                 churnRate: 0,
-                averageRevenuePerUser: 0,
+                averageRevenuePerUser: totalGrowers ? (totalRevenue / totalGrowers).toFixed(2) : 0,
                 conversionRate: 0
             },
             trends: {
-                userGrowthRate: 0, // Calculate if needed
+                userGrowthRate: 0,
                 revenueGrowthRate: 0,
                 subscriptionGrowthRate: 0,
                 churnTrend: 0
@@ -78,14 +86,14 @@ router.get('/', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error generating report:', error);
+        console.error('Error generando reporte real:', error);
         res.status(500).json({ error: 'Error generando reporte', details: error.message });
     }
 });
 
 // GET /api/admin/reports/export
 router.get('/export', async (req, res) => {
-    res.json({ success: true, message: 'Función de exportación pendiente de implementación real' });
+    res.json({ success: true, message: 'Función de exportación pendiente de implementación con datos reales' });
 });
 
 module.exports = router;

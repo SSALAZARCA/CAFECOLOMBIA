@@ -19,16 +19,14 @@ try {
 }
 
 const dbConfig = {
-    host: process.env.DB_HOST || process.env.MYSQL_HOST || 'srv1196.hstgr.io',
-    port: parseInt(process.env.DB_PORT || process.env.MYSQL_PORT || '3306'),
-    user: process.env.DB_USER || process.env.MYSQL_USER || 'u689528678_SSALAZARCA',
-    password: process.env.DB_PASSWORD || process.env.MYSQL_PASSWORD || '',
-    database: process.env.DB_NAME || process.env.MYSQL_DATABASE || 'u689528678_CAFECOLOMBIA',
+    host: process.env.DB_HOST || 'db', // 'db' es el nombre del servicio en docker-compose
+    port: parseInt(process.env.DB_PORT || '3306'),
+    user: process.env.DB_USER || process.env.MYSQL_USER || 'root',
+    password: process.env.DB_PASSWORD || process.env.MYSQL_PASSWORD || 'cafe2024',
+    database: process.env.DB_NAME || process.env.MYSQL_DATABASE || 'cafe_colombia',
     charset: 'utf8mb4',
     timezone: '+00:00',
-    ssl: {
-        rejectUnauthorized: false
-    },
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
