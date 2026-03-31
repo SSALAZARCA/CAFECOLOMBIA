@@ -11,9 +11,9 @@ done
 
 echo "✅ Base de datos detectada."
 
-# Ejecutar migraciones de Prisma
-echo "🔄 Ejecutando migraciones de Prisma..."
-npx prisma migrate deploy
+# Sincronizar esquema de Prisma con la base de datos
+echo "🔄 Sincronizando esquema de Prisma..."
+npx prisma db push --accept-data-loss
 
 # Ejecutar el comando principal
 echo "🚀 Iniciando la aplicación con PM2..."
