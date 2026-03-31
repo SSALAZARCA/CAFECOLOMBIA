@@ -25,12 +25,7 @@ WORKDIR /app
 # Copiar archivos de configuración
 COPY package*.json ./
 COPY api/package*.json ./api/
-
-# Copiar archivos de configuración TypeScript
-COPY tsconfig*.json ./
-
-# Copiar scripts necesarios para el build (requerido por postinstall)
-COPY scripts/ ./scripts/
+COPY prisma ./prisma/
 
 # ================================
 # STAGE 1: Dependencias (todas para el build)
@@ -38,7 +33,6 @@ COPY scripts/ ./scripts/
 FROM base AS deps
 
 # Instalar TODAS las dependencias (incluyendo devDependencies para el build)
-# Usar --ignore-scripts para evitar que postinstall ejecute npm run build sin archivos fuente
 RUN npm ci --ignore-scripts && npm cache clean --force
 RUN cd api && npm ci && npm cache clean --force
 
@@ -47,16 +41,22 @@ RUN cd api && npm ci && npm cache clean --force
 # ================================
 FROM base AS deps-prod
 
-# Instalar solo dependencias de producción para la imagen final (sin ejecutar scripts)
+# Instalar solo dependencias de producción
 RUN npm ci --only=production --ignore-scripts && npm cache clean --force
 RUN cd api && npm ci --only=production --ignore-scripts && npm cache clean --force
+
+# GENERAR PRISMA CLIENT EN PRODUCCIÓN
+# Esto asegura que el motor (.prisma) esté en el lugar correcto para el runner
+RUN npx prisma generate
+# También generarlo para el contexto de la API por si acaso
+RUN cd api && npx prisma generate --schema=../prisma/schema.prisma
 
 # ================================
 # STAGE 2: Builder
 # ================================
 FROM base AS builder
 
-# Copiar dependencias
+# Copiar dependencias de build
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/api/node_modules ./api/node_modules
 
@@ -81,22 +81,20 @@ ENV HOST=0.0.0.0
 RUN mkdir -p /app/uploads /app/logs /app/backups
 RUN chown -R cafeapp:nodejs /app
 
-# Copiar archivos necesarios para Prisma (schema es requerido por el engine en runtime si no se usa binaryTargets bundleados, pero client se copia en node_modules)
+# Copiar archivos necesarios para Prisma
 COPY --from=builder --chown=cafeapp:nodejs /app/prisma ./prisma
 
 # Copiar Frontend (dist)
 COPY --from=builder --chown=cafeapp:nodejs /app/dist ./dist
 
 # Copiar Backend (api/dist -> api)
-# Esto asegura que controllers, routes, lib y server.cjs estén en /app/api
 COPY --from=builder --chown=cafeapp:nodejs /app/api/dist ./api
+
+# COPIAR NODE_MODULES CON PRISMA GENERADO DESDE deps-prod
 COPY --from=deps-prod --chown=cafeapp:nodejs /app/node_modules ./node_modules
 COPY --from=deps-prod --chown=cafeapp:nodejs /app/api/node_modules ./api/node_modules
-# Asegurar que el cliente generado de Prisma esté disponible para el motor de ejecución
-COPY --from=builder --chown=cafeapp:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=cafeapp:nodejs /app/node_modules/.prisma ./api/node_modules/.prisma
 
-# Copiar archivos de configuración
+# Copiar archivos de configuración remanentes
 COPY --chown=cafeapp:nodejs package.json ./
 COPY --chown=cafeapp:nodejs api/package.json ./api/
 COPY --chown=cafeapp:nodejs ecosystem.config.cjs ./

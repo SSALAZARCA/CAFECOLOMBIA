@@ -3,8 +3,8 @@ module.exports = {
     {
       name: 'cafe-colombia-api',
       script: './api/server.cjs',
-      instances: 'max', // Usar todos los cores disponibles
-      exec_mode: 'cluster',
+      instances: 1, // Reducir overhead en arranque para evitar timeouts 504
+      exec_mode: 'fork',
       env: {
         NODE_ENV: 'development',
         PORT: 5001
