@@ -339,7 +339,8 @@ export class PushNotificationService {
 
   private async sendTokenToServer(token: string): Promise<void> {
     try {
-      const response = await fetch('/api/push/subscribe', {
+      const url = '/api/push/subscribe'.replace(/^\/api\/api\//, '/api/').replace(/\/+/g, '/');
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -363,7 +364,8 @@ export class PushNotificationService {
 
   private async removeTokenFromServer(token: string): Promise<void> {
     try {
-      await fetch('/api/push/unsubscribe', {
+      const url = '/api/push/unsubscribe'.replace(/^\/api\/api\//, '/api/').replace(/\/+/g, '/');
+      await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -381,7 +383,8 @@ export class PushNotificationService {
 
   private async sendPreferencesToServer(preferences: NotificationPreferences): Promise<void> {
     try {
-      await fetch('/api/push/preferences', {
+      const url = '/api/push/preferences'.replace(/^\/api\/api\//, '/api/').replace(/\/+/g, '/');
+      await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

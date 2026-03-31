@@ -33,10 +33,10 @@ class BackendConnectionService {
 
   // Usar VITE_API_BASE_URL si está definido; en su defecto, cadena vacía
   // para permitir rutas relativas limpias.
-  private baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+  private baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
   private baseUrls = [this.baseUrl]; 
   private currentBaseUrl = this.baseUrl;
-  private healthEndpoint = '/ping'; // Ya no incluye /api porque /api debe venir en baseUrl
+  private healthEndpoint = '/ping'; 
 
   constructor() {
     // En modo desarrollo, reducir la frecuencia de health checks
@@ -87,9 +87,11 @@ class BackendConnectionService {
         }
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // Reducir timeout a 5 segundos
+        // Al igual que en ApiClient, normalizar para evitar /api/api
+        const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
+        const finalUrl = `${cleanBaseUrl}/api${this.healthEndpoint}`.replace(/\/+/g, '/');
 
-        const response = await fetch(`${baseUrl}${this.healthEndpoint}`, {
+        const response = await fetch(finalUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

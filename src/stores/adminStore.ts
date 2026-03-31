@@ -207,7 +207,7 @@ export const useAdminStore = create<AdminStore>()(
 
           // Usar endpoint correcto del backend unificado: /api/auth/login
           // El backend espera 'email' o 'username' en el body
-          const data = await adminHttpClient.post('/api/auth/login', {
+          const data = await adminHttpClient.post('/auth/login', {
             email,
             password,
             twoFactorCode
@@ -296,7 +296,7 @@ export const useAdminStore = create<AdminStore>()(
 
         if (session) {
           try {
-            await adminHttpClient.post('/api/admin/auth/logout');
+            await adminHttpClient.post('/admin/auth/logout');
           } catch (error) {
             console.error('Error al cerrar sesión:', error);
           }
@@ -322,7 +322,7 @@ export const useAdminStore = create<AdminStore>()(
 
         try {
           // Usar endpoint correcto y enviar refresh_token
-          const data = await adminHttpClient.post('/api/admin/auth/refresh', {
+          const data = await adminHttpClient.post('/admin/auth/refresh', {
             refresh_token: session.refresh_token || session.token
           }, { skipAuth: true });
 
@@ -351,7 +351,7 @@ export const useAdminStore = create<AdminStore>()(
         const { session } = get();
         if (!session) throw new Error('No hay sesión activa');
 
-        const data = await adminHttpClient.post('/api/admin/auth/2fa/enable', {}, {
+        const data = await adminHttpClient.post('/admin/auth/2fa/enable', {}, {
           headers: { 'Authorization': `Bearer ${session.token}` }
         });
 
@@ -362,7 +362,7 @@ export const useAdminStore = create<AdminStore>()(
         const { session } = get();
         if (!session) throw new Error('No hay sesión activa');
 
-        const data = await adminHttpClient.post('/api/admin/auth/2fa/verify', { code }, {
+        const data = await adminHttpClient.post('/admin/auth/2fa/verify', { code }, {
           headers: {
             'Authorization': `Bearer ${session.token}`,
             'Content-Type': 'application/json'
@@ -384,7 +384,7 @@ export const useAdminStore = create<AdminStore>()(
         const { session } = get();
         if (!session) throw new Error('No hay sesión activa');
 
-        await adminHttpClient.post('/api/admin/auth/2fa/disable', { code }, {
+        await adminHttpClient.post('/admin/auth/2fa/disable', { code }, {
           headers: {
             'Authorization': `Bearer ${session.token}`,
             'Content-Type': 'application/json'
@@ -420,7 +420,7 @@ export const useAdminStore = create<AdminStore>()(
 
         try {
           const queryParams = new URLSearchParams(filters);
-          const data = await adminHttpClient.get(`/api/users?${queryParams}`);
+          const data = await adminHttpClient.get(`/users?${queryParams}`);
 
           set({
             users: data.data || data,
@@ -441,7 +441,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          const data = await adminHttpClient.post('/api/users', userData);
+          const data = await adminHttpClient.post('/users', userData);
 
           // Actualizar la lista de usuarios
           set(state => ({
@@ -463,7 +463,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          const data = await adminHttpClient.put(`/api/users/${id}`, userData);
+          const data = await adminHttpClient.put(`/users/${id}`, userData);
 
           // Actualizar el usuario en la lista
           set(state => ({
@@ -487,7 +487,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          await adminHttpClient.delete(`/api/users/${id}`);
+          await adminHttpClient.delete(`/users/${id}`);
 
           // Remover el usuario de la lista
           set(state => ({
@@ -508,13 +508,7 @@ export const useAdminStore = create<AdminStore>()(
         const { session } = get();
         if (!session) throw new Error('No hay sesión activa');
 
-        const response = await fetch(`/api/users/${id}/toggle-status`, {
-          method: 'PATCH',
-          headers: { 'Authorization': `Bearer ${session.token}` }
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message);
+        const data = await adminHttpClient.patch(`/users/${id}/toggle-status`);
 
         // Actualizar el estado del usuario
         set(state => ({
@@ -529,12 +523,7 @@ export const useAdminStore = create<AdminStore>()(
         if (!session) throw new Error('No hay sesión activa');
 
         const queryParams = new URLSearchParams({ ...filters, export: 'csv' });
-        const response = await fetch(`/api/users/export?${queryParams}`, {
-          headers: { 'Authorization': `Bearer ${session.token}` }
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message);
+        const data = await adminHttpClient.get(`/users/export?${queryParams}`);
 
         return data.download_url;
       },
@@ -648,7 +637,7 @@ export const useAdminStore = create<AdminStore>()(
 
         try {
           const queryParams = new URLSearchParams(filters);
-          const data = await adminHttpClient.get(`/api/coffee-growers?${queryParams}`);
+          const data = await adminHttpClient.get(`/coffee-growers?${queryParams}`);
 
           set({
             coffeeGrowers: data.data || data,
@@ -665,7 +654,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          const data = await adminHttpClient.post('/api/coffee-growers', growerData);
+          const data = await adminHttpClient.post('/coffee-growers', growerData);
 
           set(state => ({
             coffeeGrowers: [data.data || data, ...state.coffeeGrowers],
@@ -686,7 +675,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          const data = await adminHttpClient.put(`/api/coffee-growers/${id}`, growerData);
+          const data = await adminHttpClient.put(`/coffee-growers/${id}`, growerData);
 
           set(state => ({
             coffeeGrowers: state.coffeeGrowers.map(grower =>
@@ -709,7 +698,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          await adminHttpClient.delete(`/api/coffee-growers/${id}`);
+          await adminHttpClient.delete(`/coffee-growers/${id}`);
 
           set(state => ({
             coffeeGrowers: state.coffeeGrowers.filter(grower => grower.id !== id),
@@ -728,7 +717,7 @@ export const useAdminStore = create<AdminStore>()(
       exportCoffeeGrowers: async (filters = {}) => {
         try {
           const queryParams = new URLSearchParams({ ...filters, export: 'csv' });
-          const data = await adminHttpClient.get(`/api/coffee-growers/export?${queryParams}`);
+          const data = await adminHttpClient.get(`/coffee-growers/export?${queryParams}`);
 
           toast.success('Exportación iniciada');
           return data.download_url || data.url;
@@ -745,7 +734,7 @@ export const useAdminStore = create<AdminStore>()(
 
         try {
           const queryParams = new URLSearchParams(filters);
-          const data = await adminHttpClient.get(`/api/farms?${queryParams}`);
+          const data = await adminHttpClient.get(`/farms?${queryParams}`);
 
           set({
             farms: data.data || data,
@@ -762,7 +751,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          const data = await adminHttpClient.post('/api/farms', farmData);
+          const data = await adminHttpClient.post('/farms', farmData);
 
           set(state => ({
             farms: [data.data || data, ...state.farms],
@@ -783,7 +772,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          const data = await adminHttpClient.put(`/api/farms/${id}`, farmData);
+          const data = await adminHttpClient.put(`/farms/${id}`, farmData);
 
           set(state => ({
             farms: state.farms.map(farm =>
@@ -806,7 +795,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          await adminHttpClient.delete(`/api/farms/${id}`);
+          await adminHttpClient.delete(`/farms/${id}`);
 
           set(state => ({
             farms: state.farms.filter(farm => farm.id !== id),
@@ -825,7 +814,7 @@ export const useAdminStore = create<AdminStore>()(
       exportFarms: async (filters = {}) => {
         try {
           const queryParams = new URLSearchParams({ ...filters, export: 'csv' });
-          const data = await adminHttpClient.get(`/api/farms/export?${queryParams}`);
+          const data = await adminHttpClient.get(`/farms/export?${queryParams}`);
 
           toast.success('Exportación iniciada');
           return data.download_url || data.url;
@@ -842,7 +831,7 @@ export const useAdminStore = create<AdminStore>()(
 
         try {
           const queryParams = new URLSearchParams(filters);
-          const data = await adminHttpClient.get(`/api/subscription-plans?${queryParams}`);
+          const data = await adminHttpClient.get(`/subscription-plans?${queryParams}`);
 
           set({
             subscriptionPlans: data.data || data,
@@ -859,7 +848,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          const data = await adminHttpClient.post('/api/subscription-plans', planData);
+          const data = await adminHttpClient.post('/subscription-plans', planData);
 
           set(state => ({
             subscriptionPlans: [data.data || data, ...state.subscriptionPlans],
@@ -880,7 +869,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          const data = await adminHttpClient.put(`/api/subscription-plans/${id}`, planData);
+          const data = await adminHttpClient.put(`/subscription-plans/${id}`, planData);
 
           set(state => ({
             subscriptionPlans: state.subscriptionPlans.map(plan =>
@@ -903,7 +892,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          await adminHttpClient.delete(`/api/subscription-plans/${id}`);
+          await adminHttpClient.delete(`/subscription-plans/${id}`);
 
           set(state => ({
             subscriptionPlans: state.subscriptionPlans.filter(plan => plan.id !== id),
@@ -923,7 +912,7 @@ export const useAdminStore = create<AdminStore>()(
         set({ loading: true, error: null });
 
         try {
-          const data = await adminHttpClient.patch(`/api/subscription-plans/${id}/toggle-status`);
+          const data = await adminHttpClient.patch(`/subscription-plans/${id}/toggle-status`);
 
           set(state => ({
             subscriptionPlans: state.subscriptionPlans.map(plan =>

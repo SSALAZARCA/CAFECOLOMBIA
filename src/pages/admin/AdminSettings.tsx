@@ -124,8 +124,8 @@ export default function AdminSettings() {
       
       setLoading(true);
       
-      // Cambiar la URL del endpoint para incluir /api
-      const response = await useAuthenticatedFetch('/api/admin/settings');
+      // Cambiar la URL del endpoint para incluir /api -> Eliminado para evitar duplicación
+      const response = await useAuthenticatedFetch('/admin/settings');
       console.log('🔧 DEBUG AdminSettings - Respuesta recibida:', response);
       
       if (!response.ok) {

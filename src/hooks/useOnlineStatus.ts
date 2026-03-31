@@ -50,7 +50,8 @@ export const useOnlineStatus = () => {
     try {
       const start = Date.now();
       const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-      const pingUrl = `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}${'ping'}`;
+      const cleanBaseUrl = baseUrl.replace(/\/api$/, '').replace(/\/$/, '');
+      const pingUrl = `${cleanBaseUrl}/api/ping`.replace(/\/+/g, '/');
       const response = await fetch(pingUrl, { cache: 'no-store' });
       const duration = Date.now() - start;
 

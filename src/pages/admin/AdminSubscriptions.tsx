@@ -143,8 +143,8 @@ export default function AdminSubscriptions() {
   const handleSubscriptionSave = async (subscriptionData: Partial<Subscription>) => {
     try {
       const url = editingSubscription 
-        ? `/api/admin/subscriptions/${editingSubscription.id}`
-        : '/api/admin/subscriptions';
+        ? `/admin/subscriptions/${editingSubscription.id}`
+        : '/admin/subscriptions';
       
       const method = editingSubscription ? 'PUT' : 'POST';
       

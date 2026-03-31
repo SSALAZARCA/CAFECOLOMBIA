@@ -392,7 +392,9 @@ export class SyncManager {
           options.body = JSON.stringify(data);
         }
 
-        const response = await fetch(url, options);
+        // Normalización preventiva de URL para evitar /api/api
+        const cleanUrl = url.replace(/^\/api\/api\//, '/api/').replace(/\/+/g, '/');
+        const response = await fetch(cleanUrl, options);
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -441,7 +443,9 @@ export class SyncManager {
           // No establecer Content-Type para FormData, el navegador lo hace automáticamente
         };
 
-        const response = await fetch(url, options);
+        // Normalización preventiva de URL para evitar /api/api
+        const cleanUrl = url.replace(/^\/api\/api\//, '/api/').replace(/\/+/g, '/');
+        const response = await fetch(cleanUrl, options);
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);

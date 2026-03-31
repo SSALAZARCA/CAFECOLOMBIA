@@ -179,7 +179,17 @@ export class ApiClient {
 
     // Use relative URLs in development to leverage Vite proxy
     const isDev = import.meta.env.MODE === 'development' || import.meta.env.DEV;
-    const url = isDev ? endpoint : `${this.baseUrl}${endpoint}`;
+    
+    // Normalize endpoint to prevent double /api prefix
+    let cleanEndpoint = endpoint;
+    const hasApiPrefix = endpoint.startsWith('/api/');
+    
+    if (hasApiPrefix && this.baseUrl.endsWith('/api')) {
+      // If endpoint already has /api and baseUrl ends with /api, avoid duplication
+      cleanEndpoint = endpoint.substring(4); // Remove '/api'
+    }
+
+    const url = isDev ? endpoint : `${this.baseUrl}${cleanEndpoint.startsWith('/') ? cleanEndpoint : `/${cleanEndpoint}`}`;
 
     // Always get fresh token from localStorage
     const token = localStorage.getItem('token');
