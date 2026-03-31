@@ -90,6 +90,9 @@ COPY --from=builder --chown=cafeapp:nodejs /app/dist ./dist
 COPY --from=builder --chown=cafeapp:nodejs /app/api/dist ./api
 COPY --from=deps-prod --chown=cafeapp:nodejs /app/node_modules ./node_modules
 COPY --from=deps-prod --chown=cafeapp:nodejs /app/api/node_modules ./api/node_modules
+# Asegurar que el cliente generado de Prisma esté disponible para el motor de ejecución
+COPY --from=builder --chown=cafeapp:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=cafeapp:nodejs /app/node_modules/.prisma ./api/node_modules/.prisma
 
 # Copiar archivos de configuración
 COPY --chown=cafeapp:nodejs package.json ./
