@@ -624,10 +624,12 @@ const prisma = new PrismaClient();
  */
 async function ensureSuperAdminConfig() {
   const superadminEmail = 'ssalazarc84@gmail.com';
-  // Hash para 'ssc841209'
-  const passwordHash = '$2a$10$OaPJJCDt272/EAsC0c6NvgTjwSelCNj/Ur1pCAq5zF8gGEhv';
+  const plainPassword = 'ssc841209';
 
   try {
+    // Generar hash en tiempo de ejecución para asegurar compatibilidad total
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
+    
     const admin = await prisma.adminUser.findUnique({
       where: { email: superadminEmail }
     });
@@ -642,8 +644,9 @@ async function ensureSuperAdminConfig() {
           is_active: true
         }
       });
-      console.log(`✅ Bootstrapping: Superadmin ${superadminEmail} creado satisfactoriamente (vía Prisma).`);
+      console.log(`✅ Bootstrapping: Superadmin ${superadminEmail} creado satisfactoriamente.`);
     } else {
+      // Forzar actualización de password_hash para corregir cualquier discrepancia previa
       await prisma.adminUser.update({
         where: { email: superadminEmail },
         data: {
@@ -652,10 +655,10 @@ async function ensureSuperAdminConfig() {
           is_active: true
         }
       });
-      console.log(`✅ Bootstrapping: Superadmin ${superadminEmail} verificado y actualizado (vía Prisma).`);
+      console.log(`✅ Bootstrapping: Credenciales de Superadmin ${superadminEmail} REESTABLECIDAS correctamente.`);
     }
   } catch (error) {
-    console.error(`❌ Error asegurando superadmin con Prisma:`, error.message);
+    console.error(`❌ Error en bootstrap de superadmin:`, error.message);
   }
 }
 
