@@ -50,7 +50,8 @@ services:
       VITE_PUBLIC_URL: ${VITE_PUBLIC_URL:-https://cafecolombia.site}
     networks:
       - cafe-network
-    # Las etiquetas de Traefik se gestionarán automáticamente por Coolify a través de su interfaz
+    labels:
+      - "traefik.http.services.cafe-app.loadbalancer.server.port=5001"
 
 networks:
   cafe-network:
