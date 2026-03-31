@@ -50,17 +50,7 @@ services:
       VITE_PUBLIC_URL: ${VITE_PUBLIC_URL:-https://cafecolombia.site}
     networks:
       - cafe-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.cafe-app.rule=Host(`cafecolombia.site`) || Host(`www.cafecolombia.site`)"
-      - "traefik.http.routers.cafe-app.entrypoints=websecure"
-      - "traefik.http.routers.cafe-app.tls.certresolver=letsencrypt"
-      - "traefik.http.services.cafe-app.loadbalancer.server.port=5001"
-      # Redirección HTTP a HTTPS
-      - "traefik.http.routers.cafe-app-http.rule=Host(`cafecolombia.site`) || Host(`www.cafecolombia.site`)"
-      - "traefik.http.routers.cafe-app-http.entrypoints=web"
-      - "traefik.http.routers.cafe-app-http.middlewares=https-redirect"
-      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+    # Las etiquetas de Traefik se gestionarán automáticamente por Coolify a través de su interfaz
 
 networks:
   cafe-network:
