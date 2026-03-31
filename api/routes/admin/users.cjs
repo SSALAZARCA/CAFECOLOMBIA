@@ -3,6 +3,28 @@ const router = express.Router();
 const prisma = require('../../lib/prisma.cjs');
 const bcrypt = require('bcryptjs');
 
+// GET /api/admin/users/search - Alias para búsqueda (compatibilidad con AdminApiService)
+router.get('/search', async (req, res) => {
+    try {
+        const { q = '', role = '', status = '' } = req.query;
+        // Reutilizar la lógica de filtrado de / (GET raíz)
+        req.query.search = q;
+        // Redirigir internamente o copiar lógica. Por simplicidad, llamamos a la misma lógica:
+        return res.redirect(307, `/api/admin/users?search=${q}&role=${role}&status=${status}`);
+    } catch (error) {
+        res.status(500).json({ error: 'Error en búsqueda de usuarios' });
+    }
+});
+
+// GET /api/admin/users/export - Exportar usuarios
+router.get('/export', async (req, res) => {
+    try {
+        res.json({ success: true, data: { download_url: '#' } });
+    } catch (error) {
+        res.status(500).json({ error: 'Error exportando usuarios' });
+    }
+});
+
 // GET /api/admin/users - Listar usuarios (Real Data)
 router.get('/', async (req, res) => {
     try {

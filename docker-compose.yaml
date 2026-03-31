@@ -46,7 +46,7 @@ services:
       PORT: 5001
       DATABASE_URL: mysql://${MYSQL_USER:-cafe_user}:${MYSQL_PASSWORD:-cafe_password_2024}@db:3306/${MYSQL_DATABASE:-cafe_colombia}?connect_timeout=30&pool_timeout=30
       JWT_SECRET: ${JWT_SECRET:-cafe_secret_key_2024}
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/}
       VITE_PUBLIC_URL: ${VITE_PUBLIC_URL:-https://cafecolombia.site}
     networks:
       - cafe-network

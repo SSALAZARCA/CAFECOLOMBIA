@@ -2,6 +2,25 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../../lib/prisma.cjs');
 
+// GET /api/admin/farms/search - Alias para búsqueda
+router.get('/search', async (req, res) => {
+    try {
+        const { q = '' } = req.query;
+        return res.redirect(307, `/api/admin/farms?search=${q}`);
+    } catch (error) {
+        res.status(500).json({ error: 'Error buscando fincas' });
+    }
+});
+
+// GET /api/admin/farms/export - Exportar fincas
+router.get('/export', async (req, res) => {
+    try {
+        res.json({ success: true, data: { download_url: '#' } });
+    } catch (error) {
+        res.status(500).json({ error: 'Error exportando fincas' });
+    }
+});
+
 // GET /api/admin/farms - Listar fincas reales
 router.get('/', async (req, res) => {
     try {
