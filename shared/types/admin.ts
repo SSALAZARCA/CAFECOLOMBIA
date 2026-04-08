@@ -4,6 +4,7 @@ export interface AdminUser {
   id: number;
   username: string;
   email: string;
+  password_hash: string;
   full_name: string;
   role: AdminRole;
   is_active: boolean;
@@ -49,6 +50,7 @@ export interface AdminLoginResponse {
 export interface AdminCreateRequest {
   username: string;
   email: string;
+  password_hash: string;
   password: string;
   full_name: string;
   role: AdminRole;

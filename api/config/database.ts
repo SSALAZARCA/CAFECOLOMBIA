@@ -54,13 +54,19 @@ export async function executeQuery<T = any>(
 
 // Función para ejecutar queries con transacción
 export async function executeTransaction(
-  queries: Array<{ query: string; params?: any[] }>
-): Promise<any[]> {
+  queries: Array<{ query: string; params?: any[] }> | ((connection: any) => Promise<any>)
+): Promise<any> {
   const connection = await pool.getConnection();
   
   try {
     await connection.beginTransaction();
     
+    if (typeof queries === "function") {
+      const result = await queries(connection);
+      await connection.commit();
+      return result;
+    }
+
     const results = [];
     for (const { query, params = [] } of queries) {
       const [result] = await connection.execute(query, params);
@@ -76,6 +82,7 @@ export async function executeTransaction(
     connection.release();
   }
 }
+
 
 // Función para obtener una conexión del pool
 export async function getConnection() {
