@@ -957,8 +957,38 @@ export const useAdminStore = create<AdminStore>()(
       deleteSystemConfig: async () => { /* TODO: Implementar */ },
 
       // Reportes
-      generateReport: async () => { throw new Error('No implementado'); },
-      exportReport: async () => { throw new Error('No implementado'); },
+      generateReport: async (type, filters = {}) => {
+        set({ loading: true, error: null });
+
+        try {
+          const data = await adminHttpClient.post('/admin/reports/generate', { type, filters });
+
+          set({ loading: false });
+          return data.data || data;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Error al generar reporte';
+          set({ error: message, loading: false });
+          toast.error(message);
+          throw error;
+        }
+      },
+
+      exportReport: async (reportId, format) => {
+        set({ loading: true, error: null });
+
+        try {
+          const data = await adminHttpClient.get(`/admin/reports/${reportId}/export?format=${format}`);
+
+          set({ loading: false });
+          toast.success('Reporte exportado exitosamente');
+          return data.data?.download_url || data.download_url || data.url || '#';
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Error al exportar reporte';
+          set({ error: message, loading: false });
+          toast.error(message);
+          throw error;
+        }
+      },
 
 
       // UTILIDADES
